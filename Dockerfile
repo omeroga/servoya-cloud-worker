@@ -1,20 +1,18 @@
 # Dockerfile
 FROM node:18-alpine
 
-# צור תקיית עבודה
+# Create working directory
 WORKDIR /app
 
-# העתק רק קבצי package.json כדי להתקין חבילות
+# Copy package.json files and install dependencies
 COPY package*.json ./
-
-# התקן תלויות
 RUN npm install
 
-# העתק את כל שאר הקבצים
+# Copy the rest of the project files
 COPY . .
 
-# פתח את הפורט שהאפליקציה מאזינה לו
+# Expose the app port
 EXPOSE 8080
 
-# הפעל את השרת
+# Start the application
 CMD ["node", "src/index.js"]
