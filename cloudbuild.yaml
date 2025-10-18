@@ -9,17 +9,9 @@ steps:
     entrypoint: gcloud
     args:
       [
-        'run',
-        'deploy',
-        'servoya-cloud-worker',
-        '--image',
-        'gcr.io/$PROJECT_ID/servoya-cloud-worker',
-        '--region',
-        'us-central1',
-        '--platform',
-        'managed',
+        'run', 'deploy', 'servoya-cloud-worker',
+        '--image', 'gcr.io/$PROJECT_ID/servoya-cloud-worker',
+        '--region', 'us-central1',
+        '--platform', 'managed',
         '--allow-unauthenticated'
       ]
-
-options:
-  logging: CLOUD_LOGGING_ONLY
