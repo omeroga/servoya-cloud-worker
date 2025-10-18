@@ -1,20 +1,18 @@
-# Use Node.js
+# Use Node.js 18
 FROM node:18
 
 # Create app directory
-WORKDIR /app
+WORKDIR /usr/src/app
 
-# Copy package files first
+# Copy package files and install dependencies
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
 
-# Copy app source
+# Copy all source files
 COPY . .
 
-# Expose the port
+# Expose port 8080 (Cloud Run default)
 EXPOSE 8080
 
 # Start the app
-CMD ["node", "index.js"]
+CMD [ "npm", "start" ]
