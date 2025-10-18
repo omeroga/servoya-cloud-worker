@@ -1,18 +1,19 @@
-# Dockerfile
-FROM node:18-alpine
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/servoya-cloud-worker', '.']
 
-# Create working directory
-WORKDIR /app
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/servoya-cloud-worker']
 
-# Copy package.json files and install dependencies
-COPY package*.json ./
-RUN npm install
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args: [
+      'run', 'deploy', 'servoya-cloud-worker',
+      '--image', 'gcr.io/$PROJECT_ID/servoya-cloud-worker',
+      '--region', 'us-central1',
+      '--platform', 'managed',
+      '--allow-unauthenticated'
+    ]
 
-# Copy the rest of the project files
-COPY . .
-
-# Expose the app port
-EXPOSE 8080
-
-# Start the application
-CMD ["node", "src/index.js"]
+options:
+  logging: CLOUD_LOGGING_ONLY
