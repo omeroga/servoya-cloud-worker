@@ -1,19 +1,20 @@
-steps:
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/servoya-cloud-worker', '.']
+# Dockerfile - Servoya Cloud Worker
+FROM node:18-alpine
 
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/servoya-cloud-worker']
+# צור תקיית עבודה
+WORKDIR /app
 
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args: [
-      'run', 'deploy', 'servoya-cloud-worker',
-      '--image', 'gcr.io/$PROJECT_ID/servoya-cloud-worker',
-      '--region', 'us-central1',
-      '--platform', 'managed',
-      '--allow-unauthenticated'
-    ]
+# העתק רק את קובצי ה־package כדי לאפשר cache נכון
+COPY package*.json ./
 
-options:
-  logging: CLOUD_LOGGING_ONLY
+# התקן תלותים
+RUN npm install --omit=dev
+
+# העתק את כל שאר הקבצים
+COPY . .
+
+# חשוף את הפורט שה־App מאזין לו
+EXPOSE 8080
+
+# הרץ את האפליקציה
+CMD ["node", "src/index.js"]
