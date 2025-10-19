@@ -1,20 +1,21 @@
-# Dockerfile - Servoya Cloud Worker
+# Dockerfile
 FROM node:18-alpine
 
-# צור תקיית עבודה
+# צור תיקיית עבודה
 WORKDIR /app
 
-# העתק רק את קובצי ה־package כדי לאפשר cache נכון
+# העתק קובצי package
 COPY package*.json ./
 
-# התקן תלותים
-RUN npm install --omit=dev
+# התקנת תלויות
+RUN npm install
 
-# העתק את כל שאר הקבצים
+# העתק את שאר הקבצים
 COPY . .
 
-# חשוף את הפורט שה־App מאזין לו
+# הגדר את הפורט הנכון עבור Cloud Run
+ENV PORT=8080
 EXPOSE 8080
 
-# הרץ את האפליקציה
-CMD ["node", "src/index.js"]
+# הפעל את היישום
+CMD ["node", "index.js"]
