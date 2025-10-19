@@ -1,16 +1,19 @@
-# Dockerfile
-FROM node:18-alpine
-WORKDIR /app
+# Use Node.js 20 base image
+FROM node:20
 
-# העתק package.json והתקן תלויות
+# Set working directory
+WORKDIR /usr/src/app
+
+# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install --omit=dev
 
-# העתק שאר הקבצים
+# Copy all source code
 COPY . .
 
-# Cloud Run יזריק PORT=8080; נשמור אותו כחשוף (לא חובה, אבל ברור)
+# Expose Cloud Run port
+ENV PORT=8080
 EXPOSE 8080
 
-# התחל את האפליקציה
+# Start the app
 CMD ["node", "index.js"]
