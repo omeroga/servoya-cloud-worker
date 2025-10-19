@@ -1,36 +1,53 @@
+import { Router } from "express";
 import OpenAI from "openai";
-import express from "express";
 
-const app = express();
-app.use(express.json());
+const router = Router();
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// ניצור לקוח OpenAI רק אם יש מפתח בסביבה
+const openaiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_APIKEY || "";
+const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
 
-app.get("/", (req, res) => {
-  res.send("✅ Servoya Content Generator is live!");
-});
-
-app.post("/generate", async (req, res) => {
+// POST /produce  — מייצר רעיון/טקסט קצר לתוכן
+router.post("/produce", async (req, res) => {
   try {
-    const { topic, language } = req.body;
+    const { topic = "affiliate marketing ideas", style = "short social post" } = req.body || {};
 
-    const prompt = `כתוב פוסט קצר ומניע לפעולה בנושא "${topic}" בשפה ${language}. 
-    הפוסט צריך להתאים לפרסום ברשת חברתית.`
+    let idea = `Draft about "${topic}" (${style}).`;
+    if (openai) {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You write concise, high-converting social posts." },
+          { role: "user", content: `Give me one punchy ${style} about: ${topic}.` },
+        ],
+        temperature: 0.8,
+        max_tokens: 160,
+      });
+      idea = completion.choices?.[0]?.message?.content?.trim() || idea;
+    }
 
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
+    res.status(200).json({
+      ok: true,
+      status: "produced",
+      topic,
+      output: idea,
+      time: new Date().toISOString(),
+      usedOpenAI: Boolean(openai),
     });
-
-    const text = completion.choices[0].message.content;
-    res.json({ success: true, content: text });
-  } catch (error) {
-    console.error("❌ Error generating content:", error);
-    res.status(500).json({ success: false, error: error.message });
+  } catch (err) {
+    console.error("produce error:", err);
+    res.status(500).json({ ok: false, error: String(err) });
   }
 });
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
+// POST /publish  — סטאב בשלב זה (נוסיף אינטגרציות בהמשך)
+router.post("/publish", async (req, res) => {
+  res.status(200).json({
+    ok: true,
+    status: "publish stub",
+    note: "Publish will post to platforms in step 3.",
+    time: new Date().toISOString(),
+  });
+});
+
+export default router;
