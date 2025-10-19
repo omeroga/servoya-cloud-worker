@@ -12,7 +12,7 @@ app.use(express.json());
 
 // Root test route
 app.get("/", (req, res) => {
-  res.send("✅ Servoya Lead Machine is live and ready!");
+  res.send("✅ Servoya AI Automation System is live and ready!");
 });
 
 // Run generation route
