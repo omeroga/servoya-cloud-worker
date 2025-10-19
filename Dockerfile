@@ -1,21 +1,18 @@
-# Dockerfile
-FROM node:18-alpine
+# Use Node.js 18
+FROM node:18
 
-# צור תיקיית עבודה
-WORKDIR /app
+# Create app directory
+WORKDIR /usr/src/app
 
-# העתק קובצי package
+# Copy package files and install dependencies
 COPY package*.json ./
-
-# התקנת תלויות
 RUN npm install
 
-# העתק את שאר הקבצים
+# Copy the rest of the app source
 COPY . .
 
-# הגדר את הפורט הנכון עבור Cloud Run
-ENV PORT=8080
+# Expose the default port
 EXPOSE 8080
 
-# הפעל את היישום
-CMD ["node", "index.js"]
+# Start the server
+CMD ["node", "contentGenerator.js"]
