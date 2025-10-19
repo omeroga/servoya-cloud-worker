@@ -1,18 +1,21 @@
-# Use Node.js 18
+# Use official Node.js 18 image
 FROM node:18
 
 # Create app directory
 WORKDIR /usr/src/app
 
-# Copy package files and install dependencies
+# Copy package.json and package-lock.json (if exists)
 COPY package*.json ./
+
+# Install dependencies
 RUN npm install
 
 # Copy the rest of the app source
 COPY . .
 
-# Expose the default port
+# Expose the port Cloud Run uses
+ENV PORT=8080
 EXPOSE 8080
 
-# Start the server
-CMD ["node", "contentGenerator.js"]
+# Start the app
+CMD ["node", "index.js"]
