@@ -1,21 +1,16 @@
-# Use official Node.js 18 image
-FROM node:18
+# Dockerfile
+FROM node:18-alpine
+WORKDIR /app
 
-# Create app directory
-WORKDIR /usr/src/app
-
-# Copy package.json and package-lock.json (if exists)
+# העתק package.json והתקן תלויות
 COPY package*.json ./
+RUN npm install --omit=dev
 
-# Install dependencies
-RUN npm install
-
-# Copy the rest of the app source
+# העתק שאר הקבצים
 COPY . .
 
-# Expose the port Cloud Run uses
-ENV PORT=8080
+# Cloud Run יזריק PORT=8080; נשמור אותו כחשוף (לא חובה, אבל ברור)
 EXPOSE 8080
 
-# Start the app
+# התחל את האפליקציה
 CMD ["node", "index.js"]
