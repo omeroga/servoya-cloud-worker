@@ -1,17 +1,14 @@
-// index.js
 import express from "express";
 const app = express();
 
-// Middleware בסיסי
 app.use(express.json());
 
-// בדיקה שהשרת חי
 app.get("/", (req, res) => {
-  res.send("✅ Servoya Worker is running successfully!");
+  res.send("✅ Servoya Worker deployed successfully!");
 });
 
-// האזנה לפורט שסופק על ידי Cloud Run
+// הקשב לפורט שהוקצה על ידי Cloud Run
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server is listening on port ${PORT}`);
 });
