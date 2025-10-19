@@ -1,33 +1,17 @@
-import express from 'express';
+// index.js
+import express from "express";
 const app = express();
 
+// Middleware בסיסי
 app.use(express.json());
 
-// Homepage - בדיקה זריזה
-app.get('/', (req, res) => {
-  res.send('Servoya Cloud Worker is live!');
+// בדיקה שהשרת חי
+app.get("/", (req, res) => {
+  res.send("✅ Servoya Worker is running successfully!");
 });
 
-// Healthcheck
-app.get('/health', (req, res) => {
-  res.status(200).send('OK');
-});
-
-// הפונקציה המשותפת ל-GET/POST produce
-const handleProduce = (req, res) => {
-  // כאן בהמשך נקרא ל-ai/video/publish שב-src
-  res.status(200).json({
-    ok: true,
-    status: 'produce stub',
-    note: 'GET/POST /produce works',
-    time: new Date().toISOString()
-  });
-};
-
-// בדיקות: זמני — מאפשר גם GET כדי שתראה בדפדפן
-app.get('/produce', handleProduce);
-// אמיתי: POST מהאוטומציה
-app.post('/produce', handleProduce);
-
+// האזנה לפורט שסופק על ידי Cloud Run
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server is running on port ${PORT}`);
+});
