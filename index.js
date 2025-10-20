@@ -11,7 +11,7 @@ import { publishVideo } from "./src/publish.js";
 const app = express();
 app.use(express.json());
 app.use(cors());
-Cannot GET /output_1760988362415.mp3
+app.use(express.static("public")); // ✅ מאפשר גישה לקבצים שנשמרו ב־/public
 
 // Root route
 app.get("/", (req, res) => {
