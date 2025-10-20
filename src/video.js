@@ -1,4 +1,3 @@
-// src/video.js
 import fs from "fs";
 import path from "path";
 import OpenAI from "openai";
@@ -11,9 +10,14 @@ export async function generateVideo({ script, title, hashtags }) {
   try {
     console.log("🎙️ Generating voice with OpenAI TTS...");
 
-    // Create output path inside /public
-    const fileName = `output_${Date.now()}.mp3`;
-    const outputPath = path.resolve(`./public/${fileName}`);
+    // Ensure "public" folder exists
+    const publicDir = path.resolve("./public");
+    if (!fs.existsSync(publicDir)) {
+      fs.mkdirSync(publicDir, { recursive: true });
+    }
+
+    // Create output path
+    const outputPath = path.join(publicDir, `output_${Date.now()}.mp3`);
 
     // Generate audio
     const mp3 = await openai.audio.speech.create({
@@ -27,9 +31,8 @@ export async function generateVideo({ script, title, hashtags }) {
 
     console.log("✅ Audio file created:", outputPath);
 
-    // Return public URL
     return {
-      videoUrl: `https://servoya-cloud-worker.onrender.com/${fileName}`,
+      videoUrl: outputPath,
       thumbnailUrl: "https://example.com/temp-thumbnail.jpg",
     };
   } catch (error) {
