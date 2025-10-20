@@ -12,7 +12,7 @@ export async function generateVideo({ script, title, hashtags }) {
     console.log("🎙️ Generating voice with OpenAI TTS...");
 
     // Create output path
-    const outputPath = path.resolve(`./output_${Date.now()}.mp3`);
+    const outputPath = path.resolve(`./public/output_${Date.now()}.mp3`);
 
     // Generate audio
     const mp3 = await openai.audio.speech.create({
