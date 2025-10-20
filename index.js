@@ -12,12 +12,17 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Root test route
+// Root route
 app.get("/", (req, res) => {
   res.send("✅ Servoya AI Automation System is live and ready!");
 });
 
-// Run automation route
+// ✅ Test route (for Render/health check)
+app.get("/test", (req, res) => {
+  res.status(200).send("✅ Servoya worker active and connected");
+});
+
+// Main automation pipeline
 app.post("/run", async (req, res) => {
   try {
     console.log("⚙️ Starting automation pipeline...");
@@ -63,7 +68,7 @@ app.post("/run", async (req, res) => {
   }
 });
 
-// Cloud Run required port
+// Cloud Run / Render required port
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🌍 Server running on port ${PORT}`);
