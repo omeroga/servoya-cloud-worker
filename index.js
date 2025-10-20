@@ -9,9 +9,9 @@ import { generateVideo } from "./src/video.js";
 import { publishVideo } from "./src/publish.js";
 
 const app = express();
-app.use(express.json());
 app.use(cors());
-app.use(express.static("public")); // ✅ מאפשר גישה לקבצים שנשמרו ב־/public
+app.use(express.json());
+app.use(express.static("public"));
 
 // Root route
 app.get("/", (req, res) => {
