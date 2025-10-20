@@ -1,25 +1,38 @@
 // src/video.js
-// Generates short video using external AI service (e.g., Pika / Runway / Synthesia)
+import fs from "fs";
+import path from "path";
+import OpenAI from "openai";
 
-import fetch from "node-fetch";
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-/**
- * Generate a short video from script text.
- * @param {Object} opts
- * @param {string} opts.script - the full spoken script
- * @param {string} opts.title - video title for metadata
- * @param {string[]} [opts.hashtags] - optional hashtags for metadata
- * @returns {Promise<{videoUrl:string, thumbnailUrl:string}>}
- */
-export async function generateVideo({ script, title, hashtags = [] }) {
-  // --- placeholder logic for now ---
-  // Later this will call external API (Pika, Runway, etc.)
-  // For now, return mock URLs for testing.
-  console.log("🎬 Generating video from script...");
-  await new Promise(r => setTimeout(r, 2000)); // simulate delay
+export async function generateVideo({ script, title, hashtags }) {
+  try {
+    console.log("🎙️ Generating voice with OpenAI TTS...");
 
-  return {
-    videoUrl: "https://example.com/fake-video.mp4",
-    thumbnailUrl: "https://example.com/fake-thumbnail.jpg",
-  };
+    // Create output path
+    const outputPath = path.resolve(`./output_${Date.now()}.mp3`);
+
+    // Generate audio
+    const mp3 = await openai.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "alloy",
+      input: script,
+    });
+
+    const buffer = Buffer.from(await mp3.arrayBuffer());
+    fs.writeFileSync(outputPath, buffer);
+
+    console.log("✅ Audio file created:", outputPath);
+
+    // Return mock video object (for now only audio)
+    return {
+      videoUrl: outputPath,
+      thumbnailUrl: "https://example.com/temp-thumbnail.jpg",
+    };
+  } catch (error) {
+    console.error("❌ Error generating video/audio:", error);
+    throw error;
+  }
 }
