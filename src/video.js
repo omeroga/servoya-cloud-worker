@@ -11,8 +11,9 @@ export async function generateVideo({ script, title, hashtags }) {
   try {
     console.log("🎙️ Generating voice with OpenAI TTS...");
 
-    // Create output path
-    const outputPath = path.resolve(`./public/output_${Date.now()}.mp3`);
+    // Create output path inside /public
+    const fileName = `output_${Date.now()}.mp3`;
+    const outputPath = path.resolve(`./public/${fileName}`);
 
     // Generate audio
     const mp3 = await openai.audio.speech.create({
@@ -26,9 +27,9 @@ export async function generateVideo({ script, title, hashtags }) {
 
     console.log("✅ Audio file created:", outputPath);
 
-    // Return mock video object (for now only audio)
+    // Return public URL
     return {
-      videoUrl: outputPath,
+      videoUrl: `https://servoya-cloud-worker.onrender.com/${fileName}`,
       thumbnailUrl: "https://example.com/temp-thumbnail.jpg",
     };
   } catch (error) {
