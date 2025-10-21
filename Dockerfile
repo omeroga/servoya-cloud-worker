@@ -8,7 +8,7 @@ RUN npm install --legacy-peer-deps --omit=dev
 
 COPY . .
 
-EXPOSE 8080
+EXPOSE 10000
 
 # Start the app
 CMD ["node", "index.js"]
