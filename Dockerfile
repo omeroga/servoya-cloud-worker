@@ -1,21 +1,20 @@
-# Servoya Cloud Worker - Final Stable Build
+# Servoya Cloud Worker - Stable Build
 FROM node:18
 
-# Set working directory
 WORKDIR /usr/src/app
 
-# Copy package files first (for better caching)
+# Copy only package files first
 COPY package*.json ./
 
-# Install dependencies (safe mode for Render)
-RUN npm install --omit=dev --legacy-peer-deps && npm install tslib@2.6.2 --force
+# Clean install (fully reliable on Render/Railway)
+RUN npm install --force
 
-# Copy the rest of the project files
+# Copy rest of the project
 COPY . .
 
-# Define environment variable for Render's port
+# Define environment variable for port
 ENV PORT=10000
 EXPOSE 10000
 
-# Start the app directly with Node
+# Start app
 CMD ["node", "index.js"]
