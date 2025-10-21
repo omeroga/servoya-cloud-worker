@@ -14,7 +14,7 @@ RUN npm install --legacy-peer-deps --omit=dev
 COPY . .
 
 # Ensure port environment variable or default to 10000
-ENV PORT=10000
+ENV PORT 10000
 EXPOSE 10000
 
 # Start the app
