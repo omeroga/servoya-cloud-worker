@@ -1,76 +1,34 @@
-// index.js
-// === Servoya AI Automation System ===
-// Full automation pipeline: content → video → publish
+// === Debug: Check Environment Variables ===
+console.log("🔍 Checking environment variables:");
+console.log("SUPABASE_URL:", process.env.SUPABASE_URL || "❌ Missing");
+console.log("SUPABASE_KEY:", process.env.SUPABASE_KEY ? "✅ Loaded" : "❌ Missing");
+console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY ? "✅ Loaded" : "❌ Missing");
+console.log("PORT:", process.env.PORT || "❌ Missing");
+console.log("=========================================\n");
 
+// === App Imports ===
 import express from "express";
 import cors from "cors";
-import { generateContent } from "./src/contentGenerator.js";
-import { generateVideo } from "./src/video.js";
-import { publishVideo } from "./src/publish.js";
+import { createClient } from "@supabase/supabase-js";
+import OpenAI from "openai";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public"));
 
-// Root route
+// === Initialize Clients ===
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+// === Basic Test Route ===
 app.get("/", (req, res) => {
-  res.send("✅ Servoya AI Automation System is live and ready!");
+  res.send("✅ Servoya Cloud Worker is running");
 });
 
-// ✅ Test route (for Render/health check)
-app.get("/test", (req, res) => {
-  res.status(200).send("✅ Servoya worker active and connected");
-});
-
-// Main automation pipeline
-app.post("/run", async (req, res) => {
-  try {
-    console.log("⚙️ Starting automation pipeline...");
-
-    const topic = req.body.topic?.trim();
-    if (!topic) {
-      return res.status(400).json({
-        error: "Missing or invalid 'topic' field in request body",
-      });
-    }
-
-    console.log(`🧠 Generating content for topic: ${topic}`);
-    const content = await generateContent(topic);
-    console.log("🧩 Content generated:", content);
-
-    console.log("🎥 Generating video...");
-    const video = await generateVideo({
-      script: content.script,
-      title: content.title,
-      hashtags: content.hashtags,
-    });
-    console.log("🎬 Video generated:", video);
-
-    console.log("📢 Publishing video...");
-    const publish = await publishVideo({
-      videoUrl: video.videoUrl,
-      thumbnailUrl: video.thumbnailUrl,
-      caption: `${content.title} #${content.hashtags.join(" #")}`,
-    });
-
-    console.log("🚀 Publish result:", publish);
-
-    res.json({
-      status: "success",
-      topic,
-      content,
-      video,
-      publish,
-    });
-  } catch (err) {
-    console.error("❌ Pipeline failed:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Cloud Run / Render required port
+// === Start Server ===
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🌍 Server running on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
