@@ -1,7 +1,7 @@
 // src/publish.js
 // Handles automated publishing of generated videos to social platforms (mock version)
 
-import fs from "fs";
+import fs from "fs/promises"; // use promise-based FS (modern Node style)
 
 /**
  * Mock publish function — later will connect to TikTok/YouTube/Instagram APIs.
@@ -13,7 +13,7 @@ import fs from "fs";
  */
 export async function publishVideo({ videoUrl, thumbnailUrl, caption }) {
   console.log("🚀 Publishing video...");
-  await new Promise(r => setTimeout(r, 1500)); // simulate upload delay
+  await new Promise(resolve => setTimeout(resolve, 1500)); // simulate upload delay
 
   // --- mock upload result ---
   return {
