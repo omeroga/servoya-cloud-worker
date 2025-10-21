@@ -1,65 +1,46 @@
-import fs from "fs";
+// src/video.js
+// Handles video generation, storage, and metadata saving
+
+import fs from "fs/promises";
 import path from "path";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 
+// === Initialize OpenAI ===
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY?.trim(),
 });
 
-// === Supabase client setup ===
+// === Initialize Supabase ===
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_URL?.trim(),
+  process.env.SUPABASE_KEY?.trim()
 );
 
-export async function generateVideo({ script, title, hashtags }) {
-  try {
-    console.log("🎙️ Generating voice with OpenAI TTS...");
+/**
+ * Generates a short AI-based video and saves metadata to Supabase
+ * @param {string} prompt - Description for the AI video
+ * @returns {Promise<{videoUrl:string, thumbnailUrl:string, prompt:string}>}
+ */
+export async function generateVideo(prompt) {
+  console.log("🎬 Generating video for prompt:", prompt);
 
-    // Ensure "public" folder exists
-    const publicDir = path.resolve("./public");
-    if (!fs.existsSync(publicDir)) {
-      fs.mkdirSync(publicDir, { recursive: true });
-    }
+  // Simulate generation delay (mock, can be replaced with real AI video API)
+  await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Create output path
-    const outputPath = path.join(publicDir, `output_${Date.now()}.mp3`);
+  const videoUrl = `https://example.com/videos/${Date.now()}.mp4`;
+  const thumbnailUrl = `https://example.com/thumbnails/${Date.now()}.jpg`;
 
-    // Generate audio
-    const mp3 = await openai.audio.speech.create({
-      model: "gpt-4o-mini-tts",
-      voice: "alloy",
-      input: script,
-    });
+  // Save video metadata in Supabase
+  const { data, error } = await supabase.from("videos").insert([
+    { prompt, video_url: videoUrl, thumbnail_url: thumbnailUrl, created_at: new Date().toISOString() },
+  ]);
 
-    const buffer = Buffer.from(await mp3.arrayBuffer());
-    fs.writeFileSync(outputPath, buffer);
-
-    console.log("✅ Audio file created:", outputPath);
-
-    // === Save job info to Supabase ===
-    const { error } = await supabase.from("jobs").insert([
-      {
-        status: "done",
-        result_json: { videoUrl: outputPath, title, hashtags },
-        created_at: new Date().toISOString(),
-      },
-    ]);
-
-    if (error) {
-      console.error("❌ Error saving to Supabase:", error);
-    } else {
-      console.log("💾 Job saved to Supabase!");
-    }
-
-    // Return video object
-    return {
-      videoUrl: outputPath,
-      thumbnailUrl: "https://example.com/temp-thumbnail.jpg",
-    };
-  } catch (error) {
-    console.error("❌ Error generating video/audio:", error);
+  if (error) {
+    console.error("❌ Error saving video metadata:", error);
     throw error;
   }
+
+  console.log("✅ Video metadata saved successfully");
+  return { videoUrl, thumbnailUrl, prompt };
 }
