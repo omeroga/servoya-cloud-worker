@@ -1,21 +1,21 @@
 # Servoya Cloud Worker - Clean Stable Build
 FROM node:18
 
-# Set working directory
+# Create app directory
 WORKDIR /usr/src/app
 
-# Copy package files first (for better caching)
+# Copy package files first (for caching)
 COPY package*.json ./
 
-# Install dependencies cleanly
+# Clean install of dependencies
 RUN npm install --omit=dev
 
-# Copy the rest of the source code
+# Copy rest of the source code
 COPY . .
 
-# Set environment variable for port (Render expects $PORT)
+# Ensure port environment variable or default to 10000
 ENV PORT=10000
 EXPOSE 10000
 
 # Start the app
-CMD ["node", "index.js"]
+CMD ["npm", "start"]
