@@ -1,11 +1,9 @@
 steps:
   - name: 'gcr.io/cloud-builders/npm'
-    args: ['install']
-
+    args: ['ci', '--unsafe-perm']
   - name: 'gcr.io/cloud-builders/npm'
     args: ['run', 'start']
-
 options:
   logging: CLOUD_LOGGING_ONLY
-
-timeout: '600s'
+  machineType: 'E2_HIGHCPU_8'
+timeout: '900s'
