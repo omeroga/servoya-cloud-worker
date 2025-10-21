@@ -1,10 +1,17 @@
 import fs from "fs";
 import path from "path";
 import OpenAI from "openai";
+import { createClient } from "@supabase/supabase-js";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// === Supabase client setup ===
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
 export async function generateVideo({ script, title, hashtags }) {
   try {
@@ -31,6 +38,22 @@ export async function generateVideo({ script, title, hashtags }) {
 
     console.log("✅ Audio file created:", outputPath);
 
+    // === Save job info to Supabase ===
+    const { error } = await supabase.from("jobs").insert([
+      {
+        status: "done",
+        result_json: { videoUrl: outputPath, title, hashtags },
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    if (error) {
+      console.error("❌ Error saving to Supabase:", error);
+    } else {
+      console.log("💾 Job saved to Supabase!");
+    }
+
+    // Return video object
     return {
       videoUrl: outputPath,
       thumbnailUrl: "https://example.com/temp-thumbnail.jpg",
