@@ -1,21 +1,20 @@
-# Use Node 18 (LTS)
+# Use Node 18 LTS
 FROM node:18
 
 # Create app directory
 WORKDIR /usr/src/app
 
-# Copy package files
+# Copy only package files first (better layer caching)
 COPY package*.json ./
 
-# Install only production dependencies (lightweight)
-RUN npm ci --omit=dev
+# Install only production dependencies
+RUN npm install --omit=dev --legacy-peer-deps --no-audit --no-fund
 
 # Copy app source
 COPY . .
 
-# Expose the Cloud Run default port
-ENV PORT=8080
+# Cloud Run listens on PORT (default 8080)
 EXPOSE 8080
 
-# Start the app
+# Start
 CMD ["node", "index.js"]
