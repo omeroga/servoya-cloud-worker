@@ -1,4 +1,4 @@
-# Servoya Cloud Worker - Optimized Stable Build
+# Servoya Cloud Worker - Final Stable Build
 FROM node:18
 
 # Set working directory
@@ -7,8 +7,8 @@ WORKDIR /usr/src/app
 # Copy package files first (for better caching)
 COPY package*.json ./
 
-# Faster dependency installation (tries npm ci first, then fallback)
-RUN npm ci --omit=dev || npm install --legacy-peer-deps --omit=dev
+# Fast and safe install (no audit, no funding, no dev deps)
+RUN npm install --no-audit --no-fund --omit=dev
 
 # Copy the rest of the source code
 COPY . .
