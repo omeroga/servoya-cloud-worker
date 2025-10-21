@@ -1,12 +1,3 @@
-// === Debug: Check Environment Variables ===
-console.log("🔍 Checking environment variables:");
-console.log("SUPABASE_URL:", process.env.SUPABASE_URL || "❌ Missing");
-console.log("SUPABASE_KEY:", process.env.SUPABASE_KEY ? "✅ Loaded" : "❌ Missing");
-console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY ? "✅ Loaded" : "❌ Missing");
-console.log("PORT:", process.env.PORT || "❌ Missing");
-console.log("=========================================\n");
-
-// === App Imports ===
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
@@ -16,19 +7,22 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// === Initialize Clients ===
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-// === Basic Test Route ===
-app.get("/", (req, res) => {
-  res.send("✅ Servoya Cloud Worker is running");
-});
-
-// === Start Server ===
+// === Environment variables ===
 const PORT = process.env.PORT || 10000;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+// === Initialize clients ===
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+
+// === Basic test route ===
+app.get("/", (req, res) => {
+  res.status(200).json({ status: "Servoya Cloud Worker running" });
+});
+
+// === Start server ===
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
