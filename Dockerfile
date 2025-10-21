@@ -1,19 +1,19 @@
-# Servoya Cloud Worker - Clean Stable Build
+# Servoya Cloud Worker - Stable Build (tslib fix)
 FROM node:18
 
-# Create app directory
+# Set working directory
 WORKDIR /usr/src/app
 
 # Copy package files first (for caching)
 COPY package*.json ./
 
-# Clean install of dependencies
-RUN npm install --omit=dev
+# Install dependencies including tslib explicitly
+RUN npm install --omit=dev && npm install tslib
 
-# Copy rest of the source code
+# Copy the rest of the source code
 COPY . .
 
-# Ensure port environment variable or default to 10000
+# Set environment variable for port
 ENV PORT=10000
 EXPOSE 10000
 
