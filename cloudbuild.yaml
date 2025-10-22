@@ -1,27 +1,14 @@
-The application is containerized using `Dockerfile` and deployed to **Cloud Run** as a managed service.
-
----
-
-### ⚙️ Environment Variables  
-The following environment variables **must be set** in Google Cloud Run:  
-
-- `SUPABASE_URL`  
-- `SUPABASE_KEY`  
-- `OPENAI_API_KEY`  
-
-Without these, the service will not start successfully.
-
----
-
-### 🌍 Current Status  
-✅ Cloud Run service is live  
-✅ Code synchronized with GitHub  
-🟡 Next phase: Build and connect the AI Video Generation Engine (Monetization Module)
-
----
-
-### 🧾 Author  
-**Omer Rahmani**  
-Entrepreneur & AI Automation Developer  
-📧 [omeroga@gmail.com](mailto:omeroga@gmail.com)  
-🌐 [https://servoya.com](https://servoya.com)
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/servoya-cloud-worker/servoya-cloud-worker', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/servoya-cloud-worker/servoya-cloud-worker']
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - servoya-cloud-worker
+      - --image=gcr.io/servoya-cloud-worker/servoya-cloud-worker
+      - --region=us-central1
+      - --allow-unauthenticated
