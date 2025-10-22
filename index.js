@@ -1,22 +1,15 @@
-// === index.js === Servoya Cloud Worker - Stable Version ===
 import express from "express";
 import cors from "cors";
-import { createClient } from "@supabase/supabase-js";
-import OpenAI from "openai";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 8080;
-
-// healthcheck
 app.get("/", (req, res) => {
-  res.json({ ok: true, service: "servoya-worker", ts: Date.now() });
+  res.send("Servoya Cloud Worker is running successfully!");
 });
 
-// TODO: add your routes here
-
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`servoya-worker listening on ${PORT}`);
+  console.log(`✅ Servoya Cloud Worker running on port ${PORT}`);
 });
