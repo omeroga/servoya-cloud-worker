@@ -1,16 +1,16 @@
 {
   "name": "servoya-cloud-worker",
   "version": "1.0.0",
-  "description": "Servoya Cloud Worker – AI automation backend",
+  "description": "Servoya Cloud Worker - AI Automation Backend",
   "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "cors": "^2.8.5",
     "express": "^4.19.2",
-    "openai": "^4.56.0",
+    "cors": "^2.8.5",
+    "openai": "^4.58.0",
     "@supabase/supabase-js": "^2.45.0"
   }
 }
