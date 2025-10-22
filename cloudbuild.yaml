@@ -4,11 +4,15 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/servoya-cloud-worker/servoya-cloud-worker']
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
+    entrypoint: 'gcloud'
     args:
-      - run
-      - deploy
-      - servoya-cloud-worker
-      - --image=gcr.io/servoya-cloud-worker/servoya-cloud-worker
-      - --region=us-central1
-      - --allow-unauthenticated
+      [
+        'run',
+        'deploy',
+        'servoya-cloud-worker',
+        '--image=gcr.io/servoya-cloud-worker/servoya-cloud-worker',
+        '--region=us-central1',
+        '--allow-unauthenticated'
+      ]
+images:
+  - 'gcr.io/servoya-cloud-worker/servoya-cloud-worker'
