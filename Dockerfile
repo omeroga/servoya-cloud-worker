@@ -4,17 +4,17 @@ FROM node:18
 # Create app directory
 WORKDIR /usr/src/app
 
-# Copy only package files first (better layer caching)
+# Copy package files
 COPY package*.json ./
 
-# Install only production dependencies
-RUN npm install --omit=dev --legacy-peer-deps --no-audit --no-fund
+# Install dependencies
+RUN npm install --legacy-peer-deps
 
-# Copy app source
+# Copy rest of the app
 COPY . .
 
-# Cloud Run listens on PORT (default 8080)
+# Expose port
 EXPOSE 8080
 
-# Start
-CMD ["node", "index.js"]
+# Start command
+CMD ["npm", "start"]
