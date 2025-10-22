@@ -1,38 +1,23 @@
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: [
-      'build',
-      '-t',
-      'gcr.io/servoya-cloud-worker/servoya-cloud-worker',
-      '.'
-    ]
+    args: ['build', '-t', 'gcr.io/servoya-cloud-worker/servoya-cloud-worker', '.']
 
   - name: 'gcr.io/cloud-builders/docker'
-    args: [
-      'push',
-      'gcr.io/servoya-cloud-worker/servoya-cloud-worker'
-    ]
+    args: ['push', 'gcr.io/servoya-cloud-worker/servoya-cloud-worker']
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'gcloud'
-    args: [
-      'run',
-      'deploy',
-      'servoya-cloud-worker',
-      '--image',
-      'gcr.io/servoya-cloud-worker/servoya-cloud-worker',
-      '--region',
-      'us-central1',
-      '--platform',
-      'managed',
-      '--allow-unauthenticated',
-      '--memory',
-      '2Gi',
-      '--cpu',
-      '2',
-      '--timeout',
-      '300s'
-    ]
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud run deploy servoya-cloud-worker \
+          --image gcr.io/servoya-cloud-worker/servoya-cloud-worker \
+          --region us-central1 \
+          --allow-unauthenticated \
+          --platform managed \
+          --memory 2Gi \
+          --cpu 2 \
+          --timeout 300s
 
-images:
-  - 'gcr.io/servoya-cloud-worker/servoya-cloud-worker'
+options:
+  logging: CLOUD_LOGGING_ONLY
