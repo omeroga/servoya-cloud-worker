@@ -23,9 +23,5 @@ USER servoya
 # Expose port
 EXPOSE 8080
 
-# Health check for cloud monitoring
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:8080/', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
-
-# Run the app
+# Run the app - REMOVED HEALTHCHECK for Cloud Run compatibility
 CMD ["npm", "start"]
