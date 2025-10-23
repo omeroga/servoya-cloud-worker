@@ -4,6 +4,9 @@ import rateLimit from "express-rate-limit";
 
 const app = express();
 
+// ✅ FIX: Add trust proxy for Cloud Run
+app.set('trust proxy', 1);
+
 // Middlewares
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
@@ -33,7 +36,17 @@ app.post("/generate", async (req, res) => {
     }
 
     console.log("🧠 Generating script for:", prompt.substring(0, 50));
-    // ... rest of your code
+    
+    // TODO: Add your generateScript and textToSpeech imports
+    const script = "Test script"; // Replace with actual function
+    const filePath = "test.mp3"; // Replace with actual function
+    
+    res.json({ 
+      success: true,
+      script,
+      filePath,
+      timestamp: new Date().toISOString()
+    });
     
   } catch (err) {
     console.error("❌ Generate error:", err);
@@ -43,16 +56,6 @@ app.post("/generate", async (req, res) => {
 
 const port = process.env.PORT || 8080;
 
-// Important: Add detailed startup logging
-console.log("🚀 Starting Servoya Cloud Worker...");
-console.log("📍 Port:", port);
-console.log("🔑 Environment variables loaded:", {
-  hasOpenAI: !!process.env.OPENAI_API_KEY,
-  hasElevenLabs: !!process.env.ELEVENLABS_API_KEY,
-  hasSupabase: !!(process.env.SUPABASE_URL && process.env.SUPABASE_KEY)
-});
-
 app.listen(port, "0.0.0.0", () => {
   console.log(`✅ Servoya Cloud Worker successfully running on port ${port}`);
-  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
