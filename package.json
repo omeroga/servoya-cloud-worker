@@ -15,7 +15,7 @@
     "express-rate-limit": "^7.1.5",
     "winston": "^3.11.0",
     "node-cache": "^5.1.2",
-    "openai": "^4.66.0"
+    "openai": "^4.66.0",
     "@supabase/supabase-js": "^2.45.0"
   },
   "engines": {
