@@ -1,23 +1,20 @@
-# Use Node 18 Alpine for smaller size
+# שלב 1 - בסיס Node
 FROM node:18-alpine
 
-# Set working directory
+# שלב 2 - תיקיית עבודה
 WORKDIR /usr/src/app
 
-# Copy package files first
+# שלב 3 - העתקת תלויות
 COPY package*.json ./
 
-# Install production dependencies
+# שלב 4 - התקנת תלויות בלבד
 RUN npm install --omit=dev --ignore-scripts
 
-# Copy the rest of the code
+# שלב 5 - העתקת כל הקבצים
 COPY . .
 
-# Expose port (Cloud Run listens on $PORT)
+# שלב 6 - פתיחת פורט 8080
 EXPOSE 8080
 
-# ✅ Run as root to avoid permission issues (fixes exit(1))
-USER root
-
-# ✅ Start app
-CMD ["npm", "start"]
+# שלב 7 - הרצת האפליקציה
+CMD ["node", "index.js"]
