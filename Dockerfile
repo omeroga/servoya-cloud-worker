@@ -1,20 +1,20 @@
-# שלב 1 - בסיס Node
+# ---- Base image ----
 FROM node:18-alpine
 
-# שלב 2 - תיקיית עבודה
+# ---- Working directory ----
 WORKDIR /usr/src/app
 
-# שלב 3 - העתקת תלויות
+# ---- Copy dependency files ----
 COPY package*.json ./
 
-# שלב 4 - התקנת תלויות בלבד
+# ---- Install dependencies ----
 RUN npm install --omit=dev --ignore-scripts
 
-# שלב 5 - העתקת כל הקבצים
+# ---- Copy project files ----
 COPY . .
 
-# שלב 6 - פתיחת פורט 8080
+# ---- Expose correct Cloud Run port ----
 EXPOSE 8080
 
-# שלב 7 - הרצת האפליקציה
+# ---- Start app ----
 CMD ["node", "index.js"]
