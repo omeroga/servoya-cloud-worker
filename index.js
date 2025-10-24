@@ -7,7 +7,7 @@ import { textToSpeech } from "./ttsGenerator.js";
 const app = express();
 
 // ✅ נדרש ב־Cloud Run
-app.set("trust proxy", true);
+app.set("trust proxy", 1);
 
 // ✅ Middleware בסיסי
 app.use(cors());
@@ -20,7 +20,7 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// ✅ ברירת מחדל - בדיקת בריאות
+// ✅ Health check route
 app.get("/", (req, res) => {
   console.log("✅ Health check received");
   res.status(200).json({
@@ -29,11 +29,10 @@ app.get("/", (req, res) => {
   });
 });
 
-// ✅ נקודת generate
+// ✅ Main route - Generate script + voice
 app.post("/generate", async (req, res) => {
   try {
     const { prompt } = req.body;
-
     if (!prompt) {
       return res.status(400).json({ error: "Missing prompt" });
     }
@@ -41,7 +40,7 @@ app.post("/generate", async (req, res) => {
     console.log("🧠 Generating script for:", prompt.substring(0, 50));
 
     const script = await generateScript(prompt);
-    const filePath = "test.mp3"; // placeholder
+    const filePath = await textToSpeech(script, "final_output.mp3");
 
     res.status(200).json({
       success: true,
@@ -50,12 +49,12 @@ app.post("/generate", async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("❌ Generate error:", err);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("❌ Generate error:", err.message);
+    res.status(500).json({ error: "Internal server error", details: err.message });
   }
 });
 
-// ✅ בדיקת טעינת משתנים
+// ✅ Config test route
 app.get("/config", (req, res) => {
   const present = (k) => (process.env[k] ? "Loaded" : "Missing");
   res.status(200).json({
@@ -68,8 +67,8 @@ app.get("/config", (req, res) => {
   });
 });
 
-// ✅ שינוי קריטי: בלי "0.0.0.0"
-const port = Number(process.env.PORT) || 8080;
-app.listen(port, () => {
-  console.log(`✅ Servoya Cloud Worker listening on port ${port}`);
+// ✅ יציאה נקייה ל־Cloud Run
+const port = process.env.PORT || 8080;
+app.listen(port, "0.0.0.0", () => {
+  console.log(`✅ Servoya Cloud Worker running on port ${port}`);
 });
