@@ -8,7 +8,7 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # ---- Install dependencies ----
-RUN npm install --omit=dev --ignore-scripts
+RUN npm install --omit=dev
 
 # ---- Copy project files ----
 COPY . .
@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 8080
 
 # ---- Start app ----
-CMD ["npm", "start"]
+CMD ["node", "index.js"]
