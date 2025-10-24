@@ -4,24 +4,20 @@ FROM node:18-alpine
 # Set working directory
 WORKDIR /usr/src/app
 
-# Copy package files first (for better caching)
+# Copy package files first
 COPY package*.json ./
 
-# Install production dependencies - FIXED: using npm install instead of npm ci
+# Install production dependencies
 RUN npm install --omit=dev --ignore-scripts
 
-# Copy rest of the app
+# Copy the rest of the code
 COPY . .
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && adduser -S servoya -u 1001
-
-# Change ownership to non-root user
-RUN chown -R servoya:nodejs /usr/src/app
-USER servoya
-
-# Expose port
+# Expose port (Cloud Run listens on $PORT)
 EXPOSE 8080
 
-# Run the app
+# ✅ Run as root to avoid permission issues (fixes exit(1))
+USER root
+
+# ✅ Start app
 CMD ["npm", "start"]
