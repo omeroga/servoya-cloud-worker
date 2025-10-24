@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 8080
 
 # ---- Start app ----
-CMD ["node", "index.js"]
+CMD ["npm", "start"]
