@@ -1,8 +1,4 @@
 steps:
-  # Step 0: Install dependencies (creates package-lock.json)
-  - name: 'gcr.io/cloud-builders/npm'
-    args: ['install']
-
   # Step 1: Build Docker image
   - name: 'gcr.io/cloud-builders/docker'
     args:
@@ -15,7 +11,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/servoya-cloud-worker:$COMMIT_SHA']
 
-  # Step 3: Deploy with longer timeout
+  # Step 3: Deploy
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
