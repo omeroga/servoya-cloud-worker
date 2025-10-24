@@ -9,7 +9,7 @@ const supabase = createClient(
 
 export async function textToSpeech(text, fileName = "final_output.mp3") {
   try {
-    const voiceId = "Rachel"; // אפשר לשנות קול מאוחר יותר
+    const voiceId = "Rachel";
     const apiKey = process.env.ELEVENLABS_API_KEY;
     const outputPath = `/tmp/${fileName}`;
 
@@ -18,13 +18,13 @@ export async function textToSpeech(text, fileName = "final_output.mp3") {
       method: "POST",
       headers: {
         "xi-api-key": apiKey,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         text,
         model_id: "eleven_monolingual_v1",
-        voice_settings: { stability: 0.4, similarity_boost: 0.7 }
-      })
+        voice_settings: { stability: 0.4, similarity_boost: 0.7 },
+      }),
     });
 
     if (!response.ok) throw new Error(`TTS failed: ${response.statusText}`);
@@ -38,19 +38,19 @@ export async function textToSpeech(text, fileName = "final_output.mp3") {
       .from("servoya-audio")
       .upload(fileName, buffer, {
         contentType: "audio/mpeg",
-        upsert: true
+        upsert: true,
       });
 
     if (error) throw error;
 
     // שלב 3 - הפקת URL ציבורי
-    const { data: publicUrlData } = supabase
+    const publicUrlData = supabase
       .storage
       .from("servoya-audio")
       .getPublicUrl(fileName);
 
-    console.log("🔗 Public URL:", publicUrlData.publicUrl);
-    return publicUrlData.publicUrl;
+    console.log("🔗 Public URL:", publicUrlData.data.publicUrl);
+    return publicUrlData.data.publicUrl;
 
   } catch (err) {
     console.error("❌ ElevenLabs Error:", err);
