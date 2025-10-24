@@ -44,4 +44,16 @@ export async function textToSpeech(text, fileName = "final_output.mp3") {
     if (error) throw error;
 
     // שלב 3 - הפקת URL ציבורי
-    const {
+    const { data: publicUrlData } = supabase
+      .storage
+      .from("servoya-audio")
+      .getPublicUrl(fileName);
+
+    console.log("🔗 Public URL:", publicUrlData.publicUrl);
+    return publicUrlData.publicUrl;
+
+  } catch (err) {
+    console.error("❌ ElevenLabs Error:", err);
+    throw new Error("Failed to generate or upload audio");
+  }
+}
