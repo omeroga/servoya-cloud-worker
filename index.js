@@ -39,7 +39,7 @@ app.post("/generate", async (req, res) => {
     console.log("🧠 Generating script for:", prompt.substring(0, 50));
     
     // TODO: Add your generateScript and textToSpeech imports
-    const script = "Test script"; // Replace with actual function
+    const script = await generateScript(prompt);
     const filePath = "test.mp3"; // Replace with actual function
     
     res.json({ 
