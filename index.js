@@ -38,7 +38,6 @@ app.post("/generate", async (req, res) => {
 
     console.log("🧠 Generating script for:", prompt.substring(0, 50));
     
-    // TODO: Add your generateScript and textToSpeech imports
     const script = await generateScript(prompt);
     const filePath = "test.mp3"; // Replace with actual function
     
@@ -53,6 +52,19 @@ app.post("/generate", async (req, res) => {
     console.error("❌ Generate error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
+});
+
+// ---- Config self-check route (doesn't expose secrets) ----
+app.get("/config", (req, res) => {
+  const present = (k) => (process.env[k] ? "Loaded" : "Missing");
+  res.json({
+    NODE_ENV: present("NODE_ENV"),
+    SUPABASE_URL: present("SUPABASE_URL"),
+    SUPABASE_KEY: present("SUPABASE_KEY"),
+    OPENAI_API_KEY: present("OPENAI_API_KEY"),
+    ELEVENLABS_API_KEY: present("ELEVENLABS_API_KEY"),
+    timestamp: new Date().toISOString()
+  });
 });
 
 const port = process.env.PORT || 8080;
