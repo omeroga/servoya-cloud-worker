@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { generateScript } from "./openaiGenerator.js";
+import { textToSpeech } from "./ttsGenerator.js";
 
 const app = express();
 
