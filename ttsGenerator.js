@@ -1,16 +1,19 @@
 import fs from "fs";
 import fetch from "node-fetch";
+import { createClient } from "@supabase/supabase-js";
 
-export async function textToSpeech(text, fileName = "output.mp3") {
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
+
+export async function textToSpeech(text, fileName = "final_output.mp3") {
   try {
-    const voiceId = "EXAVITQu4vr4xnSDxMaL"; // ✅ ID אמיתי מ-ElevenLabs (Rachel)
+    const voiceId = "Rachel"; // אפשר לשנות קול מאוחר יותר
     const apiKey = process.env.ELEVENLABS_API_KEY;
-    const outputPath = `/tmp/${fileName}`; // Cloud Run כותב רק בתיקיית tmp
+    const outputPath = `/tmp/${fileName}`;
 
-    if (!apiKey) {
-      throw new Error("Missing ELEVENLABS_API_KEY environment variable");
-    }
-
+    // שלב 1 - יצירת האודיו
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: "POST",
       headers: {
@@ -24,19 +27,21 @@ export async function textToSpeech(text, fileName = "output.mp3") {
       })
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`TTS request failed (${response.status}): ${errorText}`);
-    }
+    if (!response.ok) throw new Error(`TTS failed: ${response.statusText}`);
 
     const buffer = Buffer.from(await response.arrayBuffer());
     fs.writeFileSync(outputPath, buffer);
-    console.log("🎤 Audio file created successfully:", outputPath);
+    console.log("🎤 Audio file created:", outputPath);
 
-    return outputPath;
+    // שלב 2 - העלאה ל-Supabase
+    const { data, error } = await supabase.storage
+      .from("servoya-audio")
+      .upload(fileName, buffer, {
+        contentType: "audio/mpeg",
+        upsert: true
+      });
 
-  } catch (err) {
-    console.error("❌ ElevenLabs Error:", err.message);
-    throw new Error("Failed to generate audio");
-  }
-}
+    if (error) throw error;
+
+    // שלב 3 - הפקת URL ציבורי
+    const {
