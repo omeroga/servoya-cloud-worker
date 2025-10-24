@@ -16,5 +16,8 @@ COPY . .
 # ---- Expose correct Cloud Run port ----
 EXPOSE 8080
 
+# Force rebuild
+RUN echo "Rebuild $(date)" > /tmp/rebuild.txt
+
 # ---- Start app directly ----
 CMD ["node", "index.js"]
