@@ -3,6 +3,7 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { generateScript } from "./openaiGenerator.js";
 import { textToSpeech } from "./ttsGenerator.js";
+import { generateVideoWithPika } from "./src/pikaGenerator.js"; // ✅ חדש
 
 const app = express();
 
@@ -29,7 +30,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// ✅ Main route - Generate script + voice
+// ✅ Main route - Generate script + voice + video
 app.post("/generate", async (req, res) => {
   try {
     const { prompt } = req.body;
@@ -39,13 +40,22 @@ app.post("/generate", async (req, res) => {
 
     console.log("🧠 Generating script for:", prompt.substring(0, 50));
 
+    // שלב 1 - יצירת טקסט
     const script = await generateScript(prompt);
-    const filePath = await textToSpeech(script, "final_output.mp3");
 
+    // שלב 2 - יצירת קול
+    const audioUrl = await textToSpeech(script, "final_output.mp3");
+
+    // שלב 3 - יצירת וידאו (Pika)
+    const videoResult = await generateVideoWithPika(script, audioUrl);
+    console.log("🎬 Video created via Pika:", videoResult);
+
+    // תשובה סופית
     res.status(200).json({
       success: true,
       script,
-      filePath,
+      filePath: audioUrl,
+      video: videoResult,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
@@ -63,6 +73,7 @@ app.get("/config", (req, res) => {
     SUPABASE_KEY: present("SUPABASE_KEY"),
     OPENAI_API_KEY: present("OPENAI_API_KEY"),
     ELEVENLABS_API_KEY: present("ELEVENLABS_API_KEY"),
+    PIKA_API_KEY: present("PIKA_API_KEY"), // ✅ חדש
     timestamp: new Date().toISOString(),
   });
 });
