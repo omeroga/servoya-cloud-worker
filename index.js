@@ -53,17 +53,17 @@ app.post("/generate", async (req, res) => {
     }
 
     // 4️⃣ שמירה אוטומטית ל-Supabase
-    const { error } = await supabase
-      .from("videos")
-      .insert([
-        {
-          prompt,
-          script,
-          audio_url: audioUrl,
-          video_url: videoUrl || null,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+    const { error } = await supabase.from("videos").insert([
+      {
+        action: "generate",
+        prompt,
+        script,
+        audio_url: audioUrl,
+        video_url: videoUrl || null,
+        duration_ms: null,
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
     if (error) {
       console.error("❌ Error saving to Supabase:", error.message);
