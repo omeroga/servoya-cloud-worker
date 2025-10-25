@@ -45,36 +45,37 @@ app.post("/generate", async (req, res) => {
     const audioUrl = await textToSpeech(script, "final_output.mp3");
 
     // 3️⃣ יצירת וידאו עם Pika (אם יש מפתח)
-    let videoResult = null;
+    let videoUrl = null;
     if (process.env.PIKA_API_KEY) {
-      videoResult = await generateVideoWithPika(script, audioUrl);
+      videoUrl = await generateVideoWithPika(script, audioUrl);
     } else {
       console.warn("⚠️ PIKA_API_KEY missing - skipped video generation");
     }
 
-    // 4️⃣ שמירה ב-Supabase
-    try {
-      const { error: insertError } = await supabase.from("videos").insert([
+    // 4️⃣ שמירה אוטומטית ל-Supabase
+    const { error } = await supabase
+      .from("videos")
+      .insert([
         {
           prompt,
           script,
           audio_url: audioUrl,
-          video_url: videoResult || null,
+          video_url: videoUrl || null,
           created_at: new Date().toISOString(),
         },
       ]);
-      if (insertError) console.error("❌ Failed to insert into Supabase:", insertError.message);
-      else console.log("✅ Data saved to Supabase");
-    } catch (e) {
-      console.error("⚠️ Supabase insert exception:", e.message);
+
+    if (error) {
+      console.error("❌ Error saving to Supabase:", error.message);
+    } else {
+      console.log("✅ Saved successfully to Supabase.");
     }
 
-    // 5️⃣ תשובה ללקוח
     res.status(200).json({
       success: true,
       script,
       audioUrl,
-      video: videoResult || "Skipped (missing PIKA_API_KEY)",
+      video: videoUrl || "Skipped (missing PIKA_API_KEY)",
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
@@ -98,17 +99,6 @@ app.get("/config", (req, res) => {
     PIKA_API_KEY: present("PIKA_API_KEY"),
     timestamp: new Date().toISOString(),
   });
-});
-
-// ✅ בדיקת חיבור ל-Supabase
-app.get("/supabase-test", async (req, res) => {
-  try {
-    const { data, error } = await supabase.from("videos").select("id").limit(1);
-    if (error) throw error;
-    res.status(200).json({ status: "✅ Connected to Supabase", sample: data });
-  } catch (err) {
-    res.status(500).json({ status: "❌ Supabase connection failed", message: err.message });
-  }
 });
 
 // ✅ הפעלה ל־Cloud Run
