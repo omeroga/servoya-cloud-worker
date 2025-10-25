@@ -69,6 +69,11 @@ app.post("/generate", async (req, res) => {
       console.error("❌ Error saving to Supabase:", error.message);
     } else {
       console.log("✅ Saved successfully to Supabase.");
+
+      await supabase
+        .from("videos")
+        .update({ action: "pending_publish" })
+        .eq("audio_url", audioUrl);
     }
 
     res.status(200).json({
