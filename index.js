@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import { generateScript } from "./openaiGenerator.js";
 import { textToSpeech } from "./ttsGenerator.js";
 import { generateVideoWithPika } from "./src/pikaGenerator.js";
+import { supabase } from "./src/supabaseClient.js";
 
 const app = express();
 
@@ -79,6 +80,17 @@ app.get("/config", (req, res) => {
     PIKA_API_KEY: present("PIKA_API_KEY"),
     timestamp: new Date().toISOString(),
   });
+});
+
+// ✅ בדיקת חיבור ל-Supabase
+app.get("/supabase-test", async (req, res) => {
+  try {
+    const { data, error } = await supabase.from("videos").select("id").limit(1);
+    if (error) throw error;
+    res.status(200).json({ status: "✅ Connected to Supabase", sample: data });
+  } catch (err) {
+    res.status(500).json({ status: "❌ Supabase connection failed", message: err.message });
+  }
 });
 
 // ✅ הפעלה ל־Cloud Run
