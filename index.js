@@ -52,6 +52,24 @@ app.post("/generate", async (req, res) => {
       console.warn("⚠️ PIKA_API_KEY missing - skipped video generation");
     }
 
+    // 4️⃣ שמירה ב-Supabase
+    try {
+      const { error: insertError } = await supabase.from("videos").insert([
+        {
+          prompt,
+          script,
+          audio_url: audioUrl,
+          video_url: videoResult || null,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      if (insertError) console.error("❌ Failed to insert into Supabase:", insertError.message);
+      else console.log("✅ Data saved to Supabase");
+    } catch (e) {
+      console.error("⚠️ Supabase insert exception:", e.message);
+    }
+
+    // 5️⃣ תשובה ללקוח
     res.status(200).json({
       success: true,
       script,
