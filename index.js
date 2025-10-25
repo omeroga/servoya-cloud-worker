@@ -3,7 +3,7 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { generateScript } from "./openaiGenerator.js";
 import { textToSpeech } from "./ttsGenerator.js";
-import { generateVideoWithPika } from "./pikaGenerator.js";
+import { generateVideoWithPika } from "./src/pikaGenerator.js";
 
 const app = express();
 
