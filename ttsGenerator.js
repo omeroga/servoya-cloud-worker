@@ -11,7 +11,8 @@ const supabase = createClient(
 
 export async function textToSpeech(text, fileName = "final_output.mp3") {
   try {
-    const voiceId = "Rachel";
+    // מזהה קול נכון מ-ElevenLabs (Rachel)
+    const voiceId = "21m00Tcm4TlvDq8ikWAM";
     const apiKey = process.env.ELEVENLABS_API_KEY;
 
     // נתיב תקין לשימוש בענן (Cloud Run)
@@ -35,7 +36,10 @@ export async function textToSpeech(text, fileName = "final_output.mp3") {
       }
     );
 
-    if (!response.ok) throw new Error(`TTS failed: ${response.statusText}`);
+    if (!response.ok) {
+      const errMsg = await response.text();
+      throw new Error(`TTS failed: ${response.status} - ${errMsg}`);
+    }
 
     const buffer = Buffer.from(await response.arrayBuffer());
     fs.writeFileSync(outputPath, buffer);
