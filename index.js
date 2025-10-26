@@ -5,7 +5,8 @@ import { generateScript } from "./openaiGenerator.js";
 import { textToSpeech } from "./ttsGenerator.js";
 import { generateVideoWithPika } from "./src/pikaGenerator.js";
 import { supabase } from "./src/supabaseClient.js";
-import { getRandomPrompt } from "./src/randomPromptEngine.js"; // ✅ חדש: חיבור מנוע פרומפט רנדומלי
+import { getRandomPrompt } from "./src/randomPromptEngine.js";
+import { isDuplicatePrompt, createPromptHash } from "./src/duplicationGuard.js"; // ✅ חדש
 
 const app = express();
 
@@ -40,6 +41,17 @@ app.post("/generate", async (req, res) => {
     const prompt = await getRandomPrompt(category || "general");
     console.log("🎯 Using random prompt:", prompt);
 
+    // 🧩 שלב 2: בדיקת כפילות
+    const promptHash = createPromptHash(prompt);
+    const alreadyExists = await isDuplicatePrompt(prompt);
+    if (alreadyExists) {
+      console.warn("⚠️ Duplicate prompt detected, skipping generation.");
+      return res.status(409).json({
+        success: false,
+        message: "Duplicate prompt detected - skipping generation",
+      });
+    }
+
     // 1️⃣ יצירת תסריט עם OpenAI
     const script = await generateScript(prompt);
 
@@ -63,6 +75,7 @@ app.post("/generate", async (req, res) => {
         audio_url: audioUrl,
         video_url: videoUrl || null,
         duration_ms: null,
+        hash: promptHash, // ✅ חדש - לשמירת ה־hash
         created_at: new Date().toISOString(),
       },
     ]);
