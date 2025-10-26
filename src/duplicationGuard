@@ -1,0 +1,30 @@
+import crypto from "crypto";
+import { supabase } from "./supabaseClient.js";
+
+/**
+ * בודק אם פרומפט זהה כבר נוצר בעבר
+ * ומחזיר true אם יש כפילות
+ */
+export async function isDuplicatePrompt(promptText) {
+  const hash = crypto.createHash("sha256").update(promptText).digest("hex");
+
+  const { data, error } = await supabase
+    .from("videos")
+    .select("id")
+    .eq("hash", hash)
+    .limit(1);
+
+  if (error) {
+    console.error("❌ Supabase Duplication Check Error:", error.message);
+    return false;
+  }
+
+  return data && data.length > 0;
+}
+
+/**
+ * מוסיף hash לפרומפט החדש
+ */
+export function createPromptHash(promptText) {
+  return crypto.createHash("sha256").update(promptText).digest("hex");
+}
