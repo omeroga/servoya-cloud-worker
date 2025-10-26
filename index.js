@@ -5,6 +5,7 @@ import { generateScript } from "./openaiGenerator.js";
 import { textToSpeech } from "./ttsGenerator.js";
 import { generateVideoWithPika } from "./src/pikaGenerator.js";
 import { supabase } from "./src/supabaseClient.js";
+import { getRandomPrompt } from "./src/randomPromptEngine.js"; // ✅ חדש: חיבור מנוע פרומפט רנדומלי
 
 const app = express();
 
@@ -33,10 +34,11 @@ app.get("/", (req, res) => {
 // ✅ ראוט מרכזי - מייצר טקסט, קול ווידאו
 app.post("/generate", async (req, res) => {
   try {
-    const { prompt } = req.body;
-    if (!prompt) return res.status(400).json({ error: "Missing prompt" });
+    const { category } = req.body;
 
-    console.log("🧠 Generating script for:", prompt.substring(0, 60));
+    // 🧠 שלב 1: בחירת פרומפט רנדומלי לפי קטגוריה
+    const prompt = await getRandomPrompt(category || "general");
+    console.log("🎯 Using random prompt:", prompt);
 
     // 1️⃣ יצירת תסריט עם OpenAI
     const script = await generateScript(prompt);
@@ -78,6 +80,8 @@ app.post("/generate", async (req, res) => {
 
     res.status(200).json({
       success: true,
+      category: category || "general",
+      prompt,
       script,
       audioUrl,
       video: videoUrl || "Skipped (missing PIKA_API_KEY)",
