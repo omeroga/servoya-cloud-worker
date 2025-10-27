@@ -131,6 +131,13 @@ app.get("/config", (req, res) => {
   });
 });
 
+// ✅ נתיב ברירת מחדל לכל בקשה לא מזוהה
+app.use((req, res) => {
+  res.status(404).json({
+    error: "Route not found",
+    path: req.originalUrl,
+  });
+});
 // ✅ הפעלה ל־Cloud Run
 const port = process.env.PORT || 8080;
 app.listen(port, "0.0.0.0", () => {
