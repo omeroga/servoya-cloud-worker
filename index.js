@@ -3,24 +3,14 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 
-// 🧩 טעינה בטוחה של מודולים כבדים
-let generateScript, textToSpeech, generateVideoWithPika, supabase;
-let getRandomPrompt, isDuplicatePrompt, getWeightedPrompt;
-
-(async () => {
-  try {
-    ({ generateScript } = await import("./openaiGenerator.js"));
-    ({ textToSpeech } = await import("./ttsGenerator.js"));
-    ({ generateVideoWithPika } = await import("./src/pikaGenerator.js"));
-    ({ supabase } = await import("./src/supabaseClient.js"));
-    ({ getRandomPrompt } = await import("./src/randomPromptEngine.js"));
-    ({ isDuplicatePrompt } = await import("./src/duplicationGuard.js"));
-    ({ getWeightedPrompt } = await import("./src/feedbackLoop.js"));
-    console.log("✅ Modules loaded successfully");
-  } catch (err) {
-    console.error("❌ Failed loading modules:", err.message);
-  }
-})();
+// ✅ טוענים את כל המודולים לפני הפעלת השרת
+import { generateScript } from "./openaiGenerator.js";
+import { textToSpeech } from "./ttsGenerator.js";
+import { generateVideoWithPika } from "./src/pikaGenerator.js";
+import { supabase } from "./src/supabaseClient.js";
+import { getRandomPrompt } from "./src/randomPromptEngine.js";
+import { isDuplicatePrompt } from "./src/duplicationGuard.js";
+import { getWeightedPrompt } from "./src/feedbackLoop.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -35,20 +25,12 @@ app.use(
   })
 );
 
-// ✅ Healthcheck
+// ✅ Health check
 app.get("/healthz", (req, res) =>
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() })
 );
 
-// ✅ Root test
-app.get("/", (req, res) =>
-  res.status(200).json({
-    status: "✅ Servoya Cloud Worker is running!",
-    timestamp: new Date().toISOString(),
-  })
-);
-
-// ✅ Config check
+// ✅ Config
 app.get("/config", (req, res) => {
   const present = (k) => (process.env[k] ? "Loaded" : "Missing");
   res.status(200).json({
@@ -65,65 +47,58 @@ app.get("/config", (req, res) => {
 // ✅ POST root test
 app.post("/", (req, res) => {
   const { category } = req.body;
-  if (!category)
-    return res.status(400).json({ error: "Missing category" });
-  res
-    .status(200)
-    .json({ message: `POST received successfully for category: ${category}` });
+  if (!category) return res.status(400).json({ error: "Missing category" });
+  res.status(200).json({ message: `POST received for category: ${category}` });
 });
 
 // ✅ Generate route
 app.post("/generate", async (req, res) => {
   try {
-    if (!generateScript || !textToSpeech) {
-      throw new Error("Modules not yet loaded");
-    }
-
     const { category } = req.body;
-    let prompt = (await getWeightedPrompt?.(category)) || null;
+    let prompt = await getWeightedPrompt(category || "general");
 
     if (!prompt) {
-      prompt = await getRandomPrompt?.(category || "general");
+      prompt = await getRandomPrompt(category || "general");
       console.log("🎯 Using random prompt:", prompt);
     } else {
       console.log("🔥 Using optimized prompt:", prompt);
     }
 
-    const alreadyExists = await isDuplicatePrompt?.(prompt);
+    const alreadyExists = await isDuplicatePrompt(prompt);
     const promptHash = crypto.randomBytes(16).toString("hex");
 
     if (alreadyExists) {
       console.warn("⚠️ Duplicate prompt detected, skipping generation.");
-      return res
-        .status(409)
-        .json({ success: false, message: "Duplicate prompt detected" });
+      return res.status(409).json({
+        success: false,
+        message: "Duplicate prompt detected - skipping generation",
+      });
     }
 
     const script = await generateScript(prompt);
     const audioUrl = await textToSpeech(script, "final_output.mp3");
 
     let videoUrl = null;
-    if (process.env.PIKA_API_KEY && generateVideoWithPika) {
+    if (process.env.PIKA_API_KEY) {
       videoUrl = await generateVideoWithPika(script, audioUrl);
     } else {
-      console.warn("⚠️ PIKA_API_KEY missing - skipping video generation");
+      console.warn("⚠️ PIKA_API_KEY missing - skipped video generation");
     }
 
-    const { error } = await supabase
-      ?.from("videos")
-      .insert([
-        {
-          action: "generate",
-          prompt,
-          script,
-          audio_url: audioUrl,
-          video_url: videoUrl || null,
-          hash: promptHash,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+    const { error } = await supabase.from("videos").insert([
+      {
+        action: "generate",
+        prompt,
+        script,
+        audio_url: audioUrl,
+        video_url: videoUrl || null,
+        hash: promptHash,
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
-    if (error) console.error("❌ Supabase insert error:", error.message);
+    if (error) console.error("❌ Error saving to Supabase:", error.message);
+    else console.log("✅ Saved successfully to Supabase.");
 
     res.status(200).json({
       success: true,
@@ -136,7 +111,10 @@ app.post("/generate", async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Generate error:", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: "Internal server error",
+      details: err.message,
+    });
   }
 });
 
@@ -145,8 +123,8 @@ app.use((req, res) =>
   res.status(404).json({ error: "Route not found", path: req.originalUrl })
 );
 
-// ✅ Start server
+// ✅ הפעלה לאחר שכל המודולים נטענו
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () =>
-  console.log(`✅ Servoya Cloud Worker running on port ${PORT}`)
-);
+app.listen(PORT, () => {
+  console.log(`✅ Servoya Cloud Worker fully loaded and running on port ${PORT}`);
+});
