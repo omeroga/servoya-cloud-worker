@@ -138,8 +138,9 @@ app.use((req, res) => {
     path: req.originalUrl,
   });
 });
+
 // ✅ הפעלה ל־Cloud Run
-const port = process.env.PORT || 8080;
-app.listen(port, "0.0.0.0", () => {
-  console.log(`✅ Servoya Cloud Worker running and listening on port ${port}`);
+const port = Number(process.env.PORT) || 8080;
+app.listen(port, () => {
+  console.log(`✅ Servoya Cloud Worker running on port ${port}`);
 });
