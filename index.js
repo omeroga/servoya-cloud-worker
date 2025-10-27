@@ -19,7 +19,6 @@ import { generateVideoWithPika } from "./src/pikaGenerator.js";
 import { supabase } from "./src/supabaseClient.js";
 import { getRandomPrompt } from "./src/randomPromptEngine.js";
 import { isDuplicatePrompt, createPromptHash } from "./src/duplicationGuard.js";
-
 const app = express();
 
 // ✅ נדרש ב־Cloud Run
