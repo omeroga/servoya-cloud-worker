@@ -1,36 +1,33 @@
 // src/randomPromptEngine.js
-// Responsible for generating unique random prompts from Supabase tables
-
-import { supabase } from "./supabaseClient.js";
 
 /**
- * שולף פרומפט אקראי מתוך קטגוריה ספציפית (לפי שם)
- * @param {string} categoryName - שם הקטגוריה (למשל 'fitness' או 'beauty')
+ * מנוע פרומפטים פשוט לפי קטגוריה
  */
-export async function getRandomPrompt(categoryName) {
-  // שליפת ה-ID של הקטגוריה לפי השם
-  const { data: categoryData, error: catError } = await supabase
-    .from("categories")
-    .select("id")
-    .eq("name", categoryName)
-    .single();
 
-  if (catError || !categoryData)
-    throw new Error(`Category not found: ${categoryName}`);
+const prompts = {
+  general: [
+    "Write a short motivational script about focus and determination.",
+    "Create a 45-second script about the power of consistency.",
+    "Generate a video narration about morning discipline and success."
+  ],
+  motivation: [
+    "Write a short speech about believing in yourself.",
+    "Generate a motivational message about never giving up.",
+    "Create a story about turning failure into opportunity."
+  ],
+  success: [
+    "Write an inspiring message about building long-term success.",
+    "Create a 30-second video script about persistence and growth.",
+    "Generate a quote-style narration about achieving goals."
+  ]
+};
 
-  const categoryId = categoryData.id;
-
-  // שליפת פרומפטים ששייכים לקטגוריה הזו
-  const { data, error } = await supabase
-    .from("prompts")
-    .select("template, category_id")
-    .eq("category_id", categoryId);
-
-  if (error) throw new Error(`Supabase error: ${error.message}`);
-  if (!data || data.length === 0)
-    throw new Error(`No prompts found for category: ${categoryName}`);
-
-  // בחירת פרומפט אקראי
-  const randomIndex = Math.floor(Math.random() * data.length);
-  return data[randomIndex].template;
+/**
+ * בוחר פרומפט רנדומלי מתוך הקטגוריה
+ */
+export async function getRandomPrompt(category = "general") {
+  const options = prompts[category];
+  if (!options) throw new Error(`category not found: ${category}`);
+  const randomIndex = Math.floor(Math.random() * options.length);
+  return options[randomIndex];
 }
