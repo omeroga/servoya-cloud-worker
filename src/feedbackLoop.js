@@ -1,40 +1,39 @@
 // src/feedbackLoop.js
-// Analyzes video performance data and biases prompt selection toward high-performing topics
+// Responsible for learning from video performance and improving prompt generation
 
 import { supabase } from "./supabaseClient.js";
 
 /**
- * בוחר פרומפט משופר לפי CTR גבוה וסטטוס 'published'
- * אם אין מספיק נתונים, מחזיר null כדי להשתמש במנוע הרנדומלי
+ * בוחר פרומפט עם משקל גבוה לפי ביצועים קודמים
+ * (לדוגמה: CTR גבוה)
+ * @param {string} categoryName
+ * @returns {Promise<string|null>}
  */
 export async function getWeightedPrompt(categoryName) {
-  try {
-    const { data, error } = await supabase
-      .from("videos")
-      .select("prompt, ctr")
-      .eq("status", "published")
-      .order("ctr", { ascending: false })
-      .limit(10);
+  const { data, error } = await supabase
+    .from("feedback_logs")
+    .select("video_id, ctr, category")
+    .eq("category", categoryName)
+    .order("ctr", { ascending: false })
+    .limit(10);
 
-    if (error) {
-      console.error("❌ Error fetching performance data:", error.message);
-      return null;
-    }
-
-    if (!data || data.length === 0) {
-      console.log("⚠️ Not enough performance data. Using random prompt instead.");
-      return null;
-    }
-
-    // מקצה סיכוי גבוה יותר לפרומפטים עם CTR גבוה
-    const weighted = data.flatMap((item) =>
-      Array(Math.ceil(item.ctr * 10) || 1).fill(item.prompt)
-    );
-
-    const randomIndex = Math.floor(Math.random() * weighted.length);
-    return weighted[randomIndex];
-  } catch (err) {
-    console.error("❌ Feedback loop error:", err.message);
+  if (error) {
+    console.error("❌ FeedbackLoop query error:", error.message);
     return null;
   }
+
+  if (!data || data.length === 0) {
+    console.log("ℹ️ No feedback data found for category:", categoryName);
+    return null;
+  }
+
+  // ניקח את ה־video_id עם CTR הגבוה ביותר ונחפש את הפרומפט שלו בטבלת videos
+  const bestVideoId = data[0].video_id;
+  const { data: videoData } = await supabase
+    .from("videos")
+    .select("prompt")
+    .eq("id", bestVideoId)
+    .single();
+
+  return videoData?.prompt || null;
 }
