@@ -2,20 +2,18 @@ import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
-import { generateScript } from "./openaiGenerator.js";
-import { textToSpeech } from "./ttsGenerator.js";
-import { generateVideoWithPika } from "./src/pikaGenerator.js";
-import { supabase } from "./src/supabaseClient.js";
-import { getRandomPrompt } from "./src/randomPromptEngine.js";
-import { isDuplicatePrompt } from "./src/duplicationGuard.js";
-import { getWeightedPrompt } from "./src/feedbackLoop.js";
+
+// 🧠 פונקציות נטענות רק אחרי שהשרת מוכן
+import("./openaiGenerator.js").then(({ generateScript }) => global.generateScript = generateScript);
+import("./ttsGenerator.js").then(({ textToSpeech }) => global.textToSpeech = textToSpeech);
+import("./src/pikaGenerator.js").then(({ generateVideoWithPika }) => global.generateVideoWithPika = generateVideoWithPika);
+import("./src/supabaseClient.js").then(({ supabase }) => global.supabase = supabase);
+import("./src/randomPromptEngine.js").then(({ getRandomPrompt }) => global.getRandomPrompt = getRandomPrompt);
+import("./src/duplicationGuard.js").then(({ isDuplicatePrompt }) => global.isDuplicatePrompt = isDuplicatePrompt);
+import("./src/feedbackLoop.js").then(({ getWeightedPrompt }) => global.getWeightedPrompt = getWeightedPrompt);
 
 const app = express();
-
-// ✅ נדרש ב־Cloud Run
 app.set("trust proxy", 1);
-
-// ✅ Middleware בסיסי
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
@@ -26,131 +24,15 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// ✅ בדיקת חיבור ראשונית
-app.get("/", (req, res) => {
-  res.status(200).json({
-    status: "✅ Servoya Cloud Worker is running!",
-    timestamp: new Date().toISOString(),
-  });
-});
+// ✅ בדיקות
+app.get("/healthz", (req, res) => res.status(200).json({ status: "ok", timestamp: new Date().toISOString() }));
+app.get("/", (req, res) => res.status(200).json({ status: "Servoya Cloud Worker is running", ts: new Date().toISOString() }));
 
-// ✅ בדיקה בסיסית ל־POST ישיר (בדיקות Postman)
-app.post("/", async (req, res) => {
-  const { category } = req.body;
-  if (!category) {
-    return res.status(400).json({ error: "Missing category" });
-  }
-  res.status(200).json({ message: `POST received successfully for category: ${category}` });
-});
-
-// ✅ ראוט מרכזי - מייצר טקסט, קול ווידאו
-app.post("/generate", async (req, res) => {
-  try {
-    const { category } = req.body;
-
-    // 🧠 שלב 1: ניסיון לשפר פרומפט לפי ביצועים
-    let prompt = await getWeightedPrompt(category || "general");
-
-    // אם אין מספיק נתוני משוב, נבחר פרומפט רנדומלי רגיל
-    if (!prompt) {
-      prompt = await getRandomPrompt(category || "general");
-      console.log("🎯 Using random prompt:", prompt);
-    } else {
-      console.log("🔥 Using optimized prompt from feedback loop:", prompt);
-    }
-
-    // 🧩 שלב 2: בדיקת כפילות
-    const alreadyExists = await isDuplicatePrompt(prompt);
-    const promptHash = crypto.randomBytes(16).toString("hex"); // hash זמני עד שדרוג
-
-    if (alreadyExists) {
-      console.warn("⚠️ Duplicate prompt detected, skipping generation.");
-      return res.status(409).json({
-        success: false,
-        message: "Duplicate prompt detected - skipping generation",
-      });
-    }
-
-    // 1️⃣ יצירת תסריט עם OpenAI
-    const script = await generateScript(prompt);
-
-    // 2️⃣ יצירת קול עם ElevenLabs
-    const audioUrl = await textToSpeech(script, "final_output.mp3");
-
-    // 3️⃣ יצירת וידאו עם Pika (אם יש מפתח)
-    let videoUrl = null;
-    if (process.env.PIKA_API_KEY) {
-      videoUrl = await generateVideoWithPika(script, audioUrl);
-    } else {
-      console.warn("⚠️ PIKA_API_KEY missing - skipped video generation");
-    }
-
-    // 4️⃣ שמירה אוטומטית ל־Supabase
-    const { error } = await supabase.from("videos").insert([
-      {
-        action: "generate",
-        prompt,
-        script,
-        audio_url: audioUrl,
-        video_url: videoUrl || null,
-        duration_ms: null,
-        hash: promptHash,
-        created_at: new Date().toISOString(),
-      },
-    ]);
-
-    if (error) {
-      console.error("❌ Error saving to Supabase:", error.message);
-    } else {
-      console.log("✅ Saved successfully to Supabase.");
-      await supabase
-        .from("videos")
-        .update({ action: "pending_publish" })
-        .eq("audio_url", audioUrl);
-    }
-
-    res.status(200).json({
-      success: true,
-      category: category || "general",
-      prompt,
-      script,
-      audioUrl,
-      video: videoUrl || "Skipped (missing PIKA_API_KEY)",
-      timestamp: new Date().toISOString(),
-    });
-  } catch (err) {
-    console.error("❌ Generate error:", err.message);
-    res.status(500).json({
-      error: "Internal server error",
-      details: err.message,
-    });
-  }
-});
-
-// ✅ מסלול בדיקה לקונפיגורציה
-app.get("/config", (req, res) => {
-  const present = (k) => (process.env[k] ? "Loaded" : "Missing");
-  res.status(200).json({
-    NODE_ENV: present("NODE_ENV"),
-    SUPABASE_URL: present("SUPABASE_URL"),
-    SUPABASE_KEY: present("SUPABASE_KEY"),
-    OPENAI_API_KEY: present("OPENAI_API_KEY"),
-    ELEVENLABS_API_KEY: present("ELEVENLABS_API_KEY"),
-    PIKA_API_KEY: present("PIKA_API_KEY"),
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// ✅ נתיב ברירת מחדל לכל בקשה לא מזוהה
-app.use((req, res) => {
-  res.status(404).json({
-    error: "Route not found",
-    path: req.originalUrl,
-  });
-});
+// ✅ נתיב ברירת מחדל
+app.use((req, res) => res.status(404).json({ error: "Route not found", path: req.originalUrl }));
 
 // ✅ הפעלה ל־Cloud Run
-const port = Number(process.env.PORT) || 8080;
-app.listen(port, () => {
-  console.log(`✅ Servoya Cloud Worker running on port ${port}`);
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`✅ Servoya Cloud Worker running on port ${PORT}`);
 });
