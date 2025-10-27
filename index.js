@@ -1,12 +1,13 @@
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
+import crypto from "crypto";
 import { generateScript } from "./openaiGenerator.js";
 import { textToSpeech } from "./ttsGenerator.js";
 import { generateVideoWithPika } from "./src/pikaGenerator.js";
 import { supabase } from "./src/supabaseClient.js";
 import { getRandomPrompt } from "./src/randomPromptEngine.js";
-import { isDuplicatePrompt, createPromptHash } from "./src/duplicationGuard.js";
+import { isDuplicatePrompt } from "./src/duplicationGuard.js";
 import { getWeightedPrompt } from "./src/feedbackLoop.js";
 
 const app = express();
@@ -33,7 +34,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// ✅ בדיקה בסיסית ל־POST ישיר (לבדיקות ב־Postman)
+// ✅ בדיקה בסיסית ל־POST ישיר (בדיקות Postman)
 app.post("/", async (req, res) => {
   const { category } = req.body;
   if (!category) {
@@ -59,8 +60,9 @@ app.post("/generate", async (req, res) => {
     }
 
     // 🧩 שלב 2: בדיקת כפילות
-    const promptHash = createPromptHash(prompt);
     const alreadyExists = await isDuplicatePrompt(prompt);
+    const promptHash = crypto.randomBytes(16).toString("hex"); // hash זמני עד שדרוג
+
     if (alreadyExists) {
       console.warn("⚠️ Duplicate prompt detected, skipping generation.");
       return res.status(409).json({
@@ -83,7 +85,7 @@ app.post("/generate", async (req, res) => {
       console.warn("⚠️ PIKA_API_KEY missing - skipped video generation");
     }
 
-    // 4️⃣ שמירה אוטומטית ל-Supabase
+    // 4️⃣ שמירה אוטומטית ל־Supabase
     const { error } = await supabase.from("videos").insert([
       {
         action: "generate",
