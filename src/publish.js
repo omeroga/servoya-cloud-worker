@@ -32,6 +32,25 @@ export async function publishVideo({ videoUrl, thumbnailUrl, caption }) {
 
     if (error) throw error;
     console.log(`✅ Video marked as published: ${videoUrl}`);
+
+    // שליחת webhook ל-Make (הפצה אוטומטית)
+    try {
+      await fetch("https://hook.us2.make.com/hwg41t1pfjq3vvzthvxqf3p2als3wkbj", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          videoUrl,
+          thumbnailUrl,
+          caption,
+          platform: result.platform,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+      console.log("📤 Sent video data to Make webhook.");
+    } catch (err) {
+      console.error("❌ Failed to send webhook:", err.message);
+    }
+
   } catch (err) {
     console.error("❌ Failed to update Supabase status:", err.message);
   }
