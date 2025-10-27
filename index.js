@@ -1,3 +1,15 @@
+process.on("uncaughtException", (err) => {
+  console.error("❌ Uncaught Exception:", err);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("❌ Unhandled Promise Rejection:", reason);
+  process.exit(1);
+});
+
+console.log("🧩 Starting Servoya Cloud Worker diagnostic mode...");
+
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
@@ -7,7 +19,6 @@ import { generateVideoWithPika } from "./src/pikaGenerator.js";
 import { supabase } from "./src/supabaseClient.js";
 import { getRandomPrompt } from "./src/randomPromptEngine.js";
 import { isDuplicatePrompt, createPromptHash } from "./src/duplicationGuard.js";
-import { getWeightedPrompt } from "./src/feedbackLoop.js"; // ✅ חדש - לולאת משוב חכמה
 
 const app = express();
 
@@ -38,16 +49,9 @@ app.post("/generate", async (req, res) => {
   try {
     const { category } = req.body;
 
-    // 🧠 שלב 1: ניסיון לשפר פרומפט לפי ביצועים
-    let prompt = await getWeightedPrompt(category || "general");
-
-    // אם אין מספיק נתוני ביצועים, נבחר פרומפט רנדומלי רגיל
-    if (!prompt) {
-      prompt = await getRandomPrompt(category || "general");
-      console.log("🎯 Using random prompt:", prompt);
-    } else {
-      console.log("🔥 Using optimized prompt from feedback loop:", prompt);
-    }
+    // 🧠 שלב 1: בחירת פרומפט רנדומלי לפי קטגוריה
+    const prompt = await getRandomPrompt(category || "general");
+    console.log("🎯 Using random prompt:", prompt);
 
     // 🧩 שלב 2: בדיקת כפילות
     const promptHash = createPromptHash(prompt);
