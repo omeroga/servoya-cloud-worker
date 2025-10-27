@@ -33,6 +33,15 @@ app.get("/", (req, res) => {
   });
 });
 
+// ✅ בדיקה בסיסית ל־POST ישיר (לבדיקות ב־Postman)
+app.post("/", async (req, res) => {
+  const { category } = req.body;
+  if (!category) {
+    return res.status(400).json({ error: "Missing category" });
+  }
+  res.status(200).json({ message: `POST received successfully for category: ${category}` });
+});
+
 // ✅ ראוט מרכזי - מייצר טקסט, קול ווידאו
 app.post("/generate", async (req, res) => {
   try {
@@ -92,7 +101,6 @@ app.post("/generate", async (req, res) => {
       console.error("❌ Error saving to Supabase:", error.message);
     } else {
       console.log("✅ Saved successfully to Supabase.");
-
       await supabase
         .from("videos")
         .update({ action: "pending_publish" })
