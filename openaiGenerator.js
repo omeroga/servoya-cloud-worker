@@ -1,9 +1,9 @@
 import OpenAI from "openai";
-import { isDuplicatePrompt, createPromptHash } from "./src/duplicationGuard.js";
+import { isDuplicatePrompt } from "./src/duplicationGuard.js";
 import { supabase } from "./src/supabaseClient.js";
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 /**
@@ -19,7 +19,7 @@ export async function generateScript(prompt) {
       console.warn("⚠️ Duplicate prompt detected — skipping generation");
       return JSON.stringify({
         success: false,
-        message: "Duplicate prompt detected - skipping generation"
+        message: "Duplicate prompt detected - skipping generation",
       });
     }
 
@@ -29,41 +29,42 @@ export async function generateScript(prompt) {
       messages: [
         {
           role: "system",
-          content: "You are a professional content scriptwriter for short motivational videos."
+          content:
+            "You are a professional content scriptwriter for short motivational videos.",
         },
         {
           role: "user",
-          content: prompt
-        }
+          content: prompt,
+        },
       ],
       temperature: 0.8,
-      max_tokens: 300
+      max_tokens: 300,
     });
 
     const script = response.choices[0].message.content.trim();
     console.log("✅ Script generated successfully.");
 
-    // --- יצירת hash ושמירה ב-Supabase ---
-    const hash = createPromptHash(prompt);
+    // --- שמירה ב-Supabase עם hash פשוט ---
+    const hash = Buffer.from(prompt).toString("base64");
     const { error } = await supabase
       .from("videos")
       .insert([
-        { prompt, hash, status: "generated", created_at: new Date().toISOString() }
+        { prompt, hash, status: "generated", created_at: new Date().toISOString() },
       ]);
 
-    if (error) console.warn("⚠️ Failed to save hash in Supabase:", error.message);
+    if (error)
+      console.warn("⚠️ Failed to save hash in Supabase:", error.message);
     else console.log("✅ Prompt hash saved to Supabase");
 
     return JSON.stringify({
       success: true,
-      script
+      script,
     });
-
   } catch (error) {
     console.error("❌ OpenAI Generator Error:", error);
     return JSON.stringify({
       success: false,
-      message: "Failed to generate script"
+      message: "Failed to generate script",
     });
   }
 }
