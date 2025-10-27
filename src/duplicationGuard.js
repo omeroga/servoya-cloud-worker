@@ -1,46 +1,84 @@
-// src/duplicationGuard.js
-import * as crypto from "node:crypto";
-import { supabase } from "./supabaseClient.js";
+import { createHash } from 'crypto';
+import { supabase } from './supabaseClient.js';
 
-/**
- * Checks whether a prompt was already generated before
- * Returns true only if a valid duplicate is found
- */
-export async function isDuplicatePrompt(promptText) {
-  try {
-    // מניעת בדיקות שווא על פרומפט ריק או קצר מדי
-    if (!promptText || promptText.trim().length < 10) {
-      console.warn("⚠️ Skipping duplicate check - prompt too short or missing");
-      return false;
-    }
-
-    const hash = crypto.createHash("sha256").update(promptText.trim()).digest("hex");
-
-    const { data, error } = await supabase
-      .from("videos")
-      .select("id")
-      .eq("hash", hash)
-      .limit(1);
-
-    if (error) {
-      console.error("❌ Supabase Duplication Check Error:", error.message);
-      return false;
-    }
-
-    const isDuplicate = Array.isArray(data) && data.length > 0;
-    if (isDuplicate) console.log("⚠️ Duplicate prompt found, skipping...");
-    else console.log("✅ New unique prompt detected.");
-
-    return isDuplicate;
-  } catch (err) {
-    console.error("❌ DuplicationGuard runtime error:", err.message);
-    return false;
+export class DuplicationGuard {
+  static generateHash(prompt, category = 'general') {
+    // מוודאים שיש קטגוריה תקינה
+    const normalizedCategory = category?.trim() || 'general';
+    const normalizedPrompt = prompt?.trim() || '';
+    
+    // יוצרים hash משולב - prompt + category
+    const contentToHash = `${normalizedCategory}:${normalizedPrompt}`;
+    
+    return createHash('sha256').update(contentToHash).digest('hex');
   }
-}
 
-/**
- * Creates hash for a new prompt
- */
-export function createPromptHash(promptText) {
-  return crypto.createHash("sha256").update(promptText.trim()).digest("hex");
+  static async checkDuplicate(prompt, category = 'general') {
+    try {
+      const hash = this.generateHash(prompt, category);
+      
+      console.log(`🔍 Checking duplicate for category: "${category}", hash: ${hash.substring(0, 8)}...`);
+
+      // בודקים במסד הנתונים
+      const { data, error } = await supabase
+        .from('videos')
+        .select('id, created_at')
+        .eq('hash', hash)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('❌ Error checking duplicate:', error);
+        return { isDuplicate: false, existingVideo: null };
+      }
+
+      const isDuplicate = data && data.length > 0;
+      
+      if (isDuplicate) {
+        console.log(`🚫 Duplicate found! Video ID: ${data[0].id}`);
+        return { 
+          isDuplicate: true, 
+          existingVideo: data[0],
+          hash: hash
+        };
+      } else {
+        console.log('✅ No duplicate found - proceeding with creation');
+        return { 
+          isDuplicate: false, 
+          existingVideo: null,
+          hash: hash 
+        };
+      }
+
+    } catch (error) {
+      console.error('❌ DuplicationGuard error:', error);
+      return { isDuplicate: false, existingVideo: null };
+    }
+  }
+
+  static async cleanOldHashes(daysToKeep = 30) {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+
+      console.log(`🧹 Cleaning hashes older than: ${cutoffDate.toISOString()}`);
+
+      const { error } = await supabase
+        .from('videos')
+        .delete()
+        .lt('created_at', cutoffDate.toISOString());
+
+      if (error) {
+        console.error('❌ Error cleaning old hashes:', error);
+        return false;
+      }
+
+      console.log('✅ Old hashes cleaned successfully');
+      return true;
+
+    } catch (error) {
+      console.error('❌ Cleanup error:', error);
+      return false;
+    }
+  }
 }
