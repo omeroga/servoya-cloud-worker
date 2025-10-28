@@ -1,39 +1,29 @@
-// src/feedbackLoop.js
-// Responsible for learning from video performance and improving prompt generation
-
 import { supabase } from "./supabaseClient.js";
 
 /**
- * בוחר פרומפט עם משקל גבוה לפי ביצועים קודמים
- * (לדוגמה: CTR גבוה)
- * @param {string} categoryName
- * @returns {Promise<string|null>}
+ * בוחר פרומפט רנדומלי מטבלת prompts בהתאם לקטגוריה.
+ * אם לא נמצאו תוצאות, מחזיר null.
  */
-export async function getWeightedPrompt(categoryName) {
-  const { data, error } = await supabase
-    .from("feedback_logs")
-    .select("video_id, ctr, category")
-    .eq("category", categoryName)
-    .order("ctr", { ascending: false })
-    .limit(10);
+export async function getRandomPrompt(category = "general") {
+  try {
+    const { data, error } = await supabase
+      .from("prompts")
+      .select("template")
+      .eq("is_active", true)
+      .limit(1)
+      .order("random()");
 
-  if (error) {
-    console.error("❌ FeedbackLoop query error:", error.message);
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      console.warn(`⚠️ No prompts found for category: ${category}`);
+      return null;
+    }
+
+    console.log("🎲 Selected random prompt:", data[0].template);
+    return data[0].template;
+  } catch (err) {
+    console.error("❌ Error fetching random prompt:", err.message);
     return null;
   }
-
-  if (!data || data.length === 0) {
-    console.log("ℹ️ No feedback data found for category:", categoryName);
-    return null;
-  }
-
-  // ניקח את ה־video_id עם CTR הגבוה ביותר ונחפש את הפרומפט שלו בטבלת videos
-  const bestVideoId = data[0].video_id;
-  const { data: videoData } = await supabase
-    .from("videos")
-    .select("prompt")
-    .eq("id", bestVideoId)
-    .single();
-
-  return videoData?.prompt || null;
 }
