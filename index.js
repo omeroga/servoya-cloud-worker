@@ -2,8 +2,10 @@ import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
+import fs from "fs";
+import { execSync } from "child_process";
 
-// ✅ טעינת כל המודולים
+// ✅ טעינת מודולים פנימיים
 import { generateScript } from "./openaiGenerator.js";
 import { textToSpeech } from "./ttsGenerator.js";
 import { generateVideoWithPika } from "./src/pikaGenerator.js";
@@ -22,6 +24,23 @@ app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100
 }));
+
+// ✅ פונקציה למיזוג אודיו ווידאו (FFmpeg)
+async function mergeAudioVideo(videoPath, audioPath, outputPath) {
+  try {
+    if (!fs.existsSync(videoPath) || !fs.existsSync(audioPath)) {
+      throw new Error("Missing input files for merge.");
+    }
+
+    const cmd = `ffmpeg -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac -strict experimental "${outputPath}" -y`;
+    execSync(cmd, { stdio: "inherit" });
+    console.log("✅ Video and audio merged successfully:", outputPath);
+    return outputPath;
+  } catch (error) {
+    console.error("❌ Merge failed:", error.message);
+    throw error;
+  }
+}
 
 // ✅ Health check
 app.get("/healthz", (req, res) =>
@@ -42,14 +61,14 @@ app.get("/config", (req, res) => {
   });
 });
 
-// ✅ POST base test
+// ✅ POST בסיסי לבדיקה
 app.post("/", (req, res) => {
   const { category } = req.body;
   if (!category) return res.status(400).json({ error: "Missing category" });
   res.status(200).json({ message: `POST received for category: ${category}` });
 });
 
-// ✅ Generate route
+// ✅ יצירת תסריט, קול, וידאו ומיזוג
 app.post("/generate", async (req, res) => {
   try {
     const { category } = req.body;
@@ -77,12 +96,18 @@ app.post("/generate", async (req, res) => {
     const script = await generateScript(prompt);
     const audioUrl = await textToSpeech(script, "final_output.mp3");
 
-    // יצירת וידאו רק אם יש מפתח
+    // יצירת וידאו
     let videoUrl = null;
     if (process.env.PIKA_API_KEY) {
       videoUrl = await generateVideoWithPika(script, audioUrl);
     } else {
       console.warn("⚠️ PIKA_API_KEY missing - skipped video generation");
+    }
+
+    // מיזוג אודיו ווידאו (אם קיימים שניהם)
+    let finalVideoPath = null;
+    if (videoUrl && audioUrl) {
+      finalVideoPath = await mergeAudioVideo("temp/video.mp4", "temp/audio.mp3", "temp/final.mp4");
     }
 
     // ✅ שמירה ב-Supabase
@@ -95,10 +120,10 @@ app.post("/generate", async (req, res) => {
       prompt,
       script,
       audio_url: audioUrl,
-      video_url: videoUrl || null,
+      video_url: finalVideoPath || videoUrl || null,
       hash: promptHash,
       action: "generate",
-      status: videoUrl ? "generated_video" : "generated_audio",
+      status: finalVideoPath ? "merged_video" : videoUrl ? "generated_video" : "generated_audio",
       created_at: createdAt
     }]);
 
@@ -108,15 +133,14 @@ app.post("/generate", async (req, res) => {
     res.status(200).json({
       success: true,
       video_id: videoId,
-      status: videoUrl ? "generated_video" : "generated_audio",
+      status: finalVideoPath ? "merged_video" : videoUrl ? "generated_video" : "generated_audio",
       category: category || "general",
       prompt,
       script,
       outputs: {
         audio_url: audioUrl,
-        video_url: videoUrl || null,
+        video_url: finalVideoPath || videoUrl || null,
       },
-      metrics: { processing_ms: null },
       created_at: createdAt,
     });
   } catch (err) {
@@ -136,5 +160,5 @@ app.use((req, res) =>
 // ✅ הפעלה
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`✅ Servoya Cloud Worker fully loaded and running on port ${PORT}`);
+  console.log(`✅ Servoya Cloud Worker running on port ${PORT}`);
 });
