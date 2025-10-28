@@ -1,17 +1,15 @@
 import { supabase } from "./supabaseClient.js";
 
 /**
- * בוחר פרומפט רנדומלי מטבלת prompts בהתאם לקטגוריה.
- * אם לא נמצאו תוצאות, מחזיר null.
+ * בוחר פרומפט משוקלל בהתאם לקטגוריה, לפי המשקל של כל prompt בטבלת prompts_library.
+ * אם אין תוצאות, מחזיר null.
  */
-export async function getRandomPrompt(category = "general") {
+export async function getWeightedPrompt(category = "general") {
   try {
     const { data, error } = await supabase
-      .from("prompts")
-      .select("template")
-      .eq("is_active", true)
-      .limit(1)
-      .order("random()");
+      .from("prompts_library")
+      .select("prompt, weight")
+      .eq("category", category);
 
     if (error) throw error;
 
@@ -20,10 +18,22 @@ export async function getRandomPrompt(category = "general") {
       return null;
     }
 
-    console.log("🎲 Selected random prompt:", data[0].template);
-    return data[0].template;
+    // בחירה משוקללת לפי weight
+    const totalWeight = data.reduce((sum, p) => sum + (p.weight || 1), 0);
+    let random = Math.random() * totalWeight;
+
+    for (const p of data) {
+      random -= p.weight || 1;
+      if (random <= 0) {
+        console.log(`🎯 Selected weighted prompt for '${category}':`, p.prompt);
+        return p.prompt;
+      }
+    }
+
+    // fallback
+    return data[0].prompt;
   } catch (err) {
-    console.error("❌ Error fetching random prompt:", err.message);
+    console.error("❌ Error fetching weighted prompt:", err.message);
     return null;
   }
 }
