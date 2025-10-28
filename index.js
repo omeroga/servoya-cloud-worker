@@ -12,7 +12,7 @@ import fetch from "node-fetch"; // ✅ נדרש ל־fetch בסביבת Node.js
 import { generateScript } from "./openaiGenerator.js";
 import { textToSpeech } from "./ttsGenerator.js";
 import { generateVideoWithPika } from "./pikaGenerator.js";
-import { supabase } from "./supabaseClient.js";
+import { supabase } from "./src/supabaseClient.js";
 import { getRandomPrompt } from "./src/randomPromptEngine.js";
 import { isDuplicatePrompt } from "./src/duplicationGuard.js";
 import { getWeightedPrompt } from "./src/feedbackLoop.js";
@@ -71,8 +71,8 @@ app.get("/config", (req, res) => {
   const present = (k) => (process.env[k] ? "Loaded" : "Missing");
   res.status(200).json({
     NODE_ENV: present("NODE_ENV"),
-    SUPABASE_URL: present("SUPABASE_URL"),
-    SUPABASE_KEY: present("SUPABASE_KEY"),
+    _URL: present("_URL"),
+    _KEY: present("_KEY"),
     OPENAI_API_KEY: present("OPENAI_API_KEY"),
     ELEVENLABS_API_KEY: present("ELEVENLABS_API_KEY"),
     PIKA_API_KEY: present("PIKA_API_KEY"),
@@ -129,11 +129,11 @@ app.post("/generate", async (req, res) => {
       finalVideoPath = await mergeAudioVideo(videoUrl, audioUrl);
     }
 
-    // ✅ שמירה ב-Supabase
+    // ✅ שמירה ב-
     const videoId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
 
-    const { error } = await supabase.from("videos").insert([{
+    const { error } = await .from("videos").insert([{
       id: videoId,
       category: category || "general",
       prompt,
@@ -146,8 +146,8 @@ app.post("/generate", async (req, res) => {
       created_at: createdAt
     }]);
 
-    if (error) console.error("❌ Error saving to Supabase:", error.message);
-    else console.log("✅ Saved successfully to Supabase.");
+    if (error) console.error("❌ Error saving to :", error.message);
+    else console.log("✅ Saved successfully to .");
 
     res.status(200).json({
       success: true,
