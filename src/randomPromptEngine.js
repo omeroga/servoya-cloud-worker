@@ -1,49 +1,62 @@
 import { supabase } from "./supabaseClient.js";
 
 /**
- * בוחר פרומפט רנדומלי מטבלת prompts לפי קטגוריה.
- * מתואם לגרסה שבה כל הקטגוריות ב־Supabase הן lowercase.
+ * שולף פרומפט רנדומלי ע"י:
+ * 1) מציאת category_id לפי שם קטגוריה (lowercase)
+ * 2) שליפת עד 100 פרומפטים פעילים לקטגוריה
+ * 3) בחירת פרומפט אקראי בצד השרת (JS) – יציב ומהיר
  */
 export async function getRandomPrompt(category = "general") {
   try {
-    console.log(`🎯 Fetching random prompt for category: ${category}`);
+    const catName = String(category || "general").toLowerCase();
 
-    // שליפת מזהה הקטגוריה (מותאם לאותיות קטנות)
-    const { data: catData, error: catError } = await supabase
+    // 1) קבלת category_id
+    const { data: cat, error: catErr } = await supabase
       .from("categories")
-      .select("id")
-      .eq("name", category)
+      .select("id, name")
+      .eq("name", catName)
       .maybeSingle();
 
-    if (catError) throw catError;
-
-    const categoryId = catData?.id;
-    if (!categoryId) {
-      console.warn(`⚠️ Category '${category}' not found, selecting any active prompt.`);
-    }
-
-    // שליפת פרומפט לפי קטגוריה אם קיימת, אחרת רנדומלי כללי
-    let query = supabase
-      .from("prompts")
-      .select("template")
-      .eq("is_active", true)
-      .order("random()")
-      .limit(1);
-
-    if (categoryId) query = query.eq("category_id", categoryId);
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      console.warn("⚠️ No prompts found for this category.");
+    if (catErr) {
+      console.error("❌ categories query error:", catErr.message);
       return null;
     }
 
-    console.log("🎲 Selected random prompt:", data[0].template);
-    return data[0].template;
+    const categoryId = cat?.id || null;
+
+    // 2) שליפת פרומפטים פעילים לקטגוריה (או לכללי אם אין קטגוריה)
+    let query = supabase
+      .from("prompts")
+      .select("template, is_active, category_id")
+      .eq("is_active", true)
+      .limit(100); // תקרה בטוחה
+
+    if (categoryId) query = query.eq("category_id", categoryId);
+
+    const { data: prompts, error: pErr } = await query;
+
+    if (pErr) {
+      console.error("❌ prompts query error:", pErr.message);
+      return null;
+    }
+
+    if (!prompts || prompts.length === 0) {
+      console.warn(`⚠️ No active prompts found for category '${catName}'.`);
+      return null;
+    }
+
+    // 3) בחירת פרומפט אקראי בצד השרת
+    const pick = prompts[Math.floor(Math.random() * prompts.length)];
+    const template = pick?.template?.trim();
+    if (!template) {
+      console.warn("⚠️ Selected prompt had empty template. Returning null.");
+      return null;
+    }
+
+    console.log("🎲 Selected random prompt:", template);
+    return template;
   } catch (err) {
-    console.error("❌ Error fetching random prompt:", err.message);
+    console.error("❌ getRandomPrompt fatal error:", err.message);
     return null;
   }
 }
