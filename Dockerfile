@@ -1,6 +1,9 @@
 # ---- Base image ----
 FROM node:20-alpine
 
+# ✅ Install FFmpeg for audio-video merge
+RUN apk add --no-cache ffmpeg
+
 # ---- Working directory ----
 WORKDIR /usr/src/app
 
