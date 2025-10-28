@@ -138,28 +138,32 @@ app.post("/generate", async (req, res) => {
     const videoId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
 
-    const { error } = await supabase.from("videos").insert([
-      {
-        id: videoId,
-        category: category || "general",
-        prompt,
-        script,
-        audio_url: audioUrl,
-        video_url: finalVideoPath || videoUrl || null,
-        hash: promptHash,
-        action: "generate",
-        status: finalVideoPath
-          ? "merged_video"
-          : videoUrl
-          ? "generated_video"
-          : "generated_audio",
-        created_at: createdAt,
-      },
-    ]);
+    const { error } = await supabase
+      .from("videos")
+      .insert([
+        {
+          id: videoId,
+          category: category || "general",
+          prompt,
+          script,
+          audio_url: audioUrl,
+          video_url: finalVideoPath || videoUrl || null,
+          hash: promptHash,
+          action: "generate",
+          status: finalVideoPath
+            ? "merged_video"
+            : videoUrl
+            ? "generated_video"
+            : "generated_audio",
+          created_at: createdAt,
+        },
+      ]);
 
-    if (error)
+    if (error) {
       console.error("❌ Error saving to Supabase:", error.message);
-    else console.log("✅ Saved successfully to Supabase.");
+    } else {
+      console.log("✅ Saved successfully to Supabase.");
+    }
 
     res.status(200).json({
       success: true,
