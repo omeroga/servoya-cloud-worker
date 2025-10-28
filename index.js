@@ -6,7 +6,7 @@ import fs from "fs";
 import { execSync } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
-import fetch from "node-fetch"; // ✅ נדרש ל־fetch בסביבת Node.js
+import fetch from "node-fetch";
 
 // ✅ מודולים פנימיים
 import { generateScript } from "./openaiGenerator.js";
@@ -17,59 +17,29 @@ import { getRandomPrompt } from "./src/randomPromptEngine.js";
 import { isDuplicatePrompt } from "./src/duplicationGuard.js";
 import { getWeightedPrompt } from "./src/feedbackLoop.js";
 
-// ✅ לוג התחלה
-console.log("🟢 Servoya Cloud Worker starting up...");
+// ✅ התחלה
+console.log("🟢 Servoya Cloud Worker starting...");
 
-// ✅ הגדרות בסיסיות
+// ✅ אפליקציה בסיסית
 const app = express();
 app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-// ✅ Rate limit
-app.use(
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-  })
-);
+// ✅ Rate Limit
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 
-// ✅ נתיב תיקייה זמנית
+// ✅ תיקיית TEMP
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const TEMP_DIR = path.join(__dirname, "temp");
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
-// ✅ פונקציה למיזוג אודיו ווידאו
-async function mergeAudioVideo(videoUrl, audioUrl) {
-  try {
-    console.log("🎬 Downloading video & audio for merge...");
-
-    const videoPath = path.join(TEMP_DIR, "video.mp4");
-    const audioPath = path.join(TEMP_DIR, "audio.mp3");
-    const outputPath = path.join(TEMP_DIR, "final.mp4");
-
-    const videoData = await fetch(videoUrl);
-    const audioData = await fetch(audioUrl);
-
-    fs.writeFileSync(videoPath, Buffer.from(await videoData.arrayBuffer()));
-    fs.writeFileSync(audioPath, Buffer.from(await audioData.arrayBuffer()));
-
-    const cmd = `ffmpeg -y -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac "${outputPath}"`;
-    execSync(cmd, { stdio: "inherit" });
-
-    console.log("✅ Merge complete:", outputPath);
-    return outputPath;
-  } catch (error) {
-    console.error("❌ Merge failed:", error.message);
-    throw error;
-  }
-}
-
 // ✅ Health check
-app.get("/healthz", (req, res) =>
-  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() })
-);
+app.get("/healthz", (req, res) => {
+  console.log("✅ Health check pinged");
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
 
 // ✅ Config check
 app.get("/config", (req, res) => {
@@ -85,117 +55,82 @@ app.get("/config", (req, res) => {
   });
 });
 
-// ✅ POST בסיסי לבדיקה
-app.post("/", (req, res) => {
-  const { category } = req.body;
-  if (!category) return res.status(400).json({ error: "Missing category" });
-  res.status(200).json({ message: `POST received for category: ${category}` });
-});
+// ✅ פונקציה למיזוג וידאו ואודיו
+async function mergeAudioVideo(videoUrl, audioUrl) {
+  try {
+    console.log("🎬 Merging video & audio...");
+    const videoPath = path.join(TEMP_DIR, "video.mp4");
+    const audioPath = path.join(TEMP_DIR, "audio.mp3");
+    const outputPath = path.join(TEMP_DIR, "final.mp4");
 
-// ✅ יצירת תסריט, קול, וידאו ומיזוג
+    const videoData = await fetch(videoUrl);
+    const audioData = await fetch(audioUrl);
+
+    fs.writeFileSync(videoPath, Buffer.from(await videoData.arrayBuffer()));
+    fs.writeFileSync(audioPath, Buffer.from(await audioData.arrayBuffer()));
+
+    const cmd = `ffmpeg -y -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac "${outputPath}"`;
+    execSync(cmd, { stdio: "inherit" });
+
+    console.log("✅ Merge complete");
+    return outputPath;
+  } catch (error) {
+    console.error("❌ Merge failed:", error.message);
+    throw error;
+  }
+}
+
+// ✅ יצירת תוכן
 app.post("/generate", async (req, res) => {
   try {
     const { category } = req.body;
     let prompt = await getWeightedPrompt(category || "general");
-
-    if (!prompt) {
-      prompt = await getRandomPrompt(category || "general");
-      console.log("🎯 Using random prompt:", prompt);
-    } else {
-      console.log("🔥 Using optimized prompt:", prompt);
-    }
+    if (!prompt) prompt = await getRandomPrompt(category || "general");
 
     const alreadyExists = await isDuplicatePrompt(prompt);
-    const promptHash = crypto.randomBytes(16).toString("hex");
-
     if (alreadyExists) {
-      console.warn("⚠️ Duplicate prompt detected, skipping generation.");
-      return res.status(409).json({
-        success: false,
-        message: "Duplicate prompt detected - skipping generation",
-      });
+      return res.status(409).json({ success: false, message: "Duplicate prompt detected" });
     }
 
-    // ✅ יצירת תסריט
     const script = await generateScript(prompt);
     const audioUrl = await textToSpeech(script, "final_output.mp3");
+    const videoUrl = process.env.PIKA_API_KEY ? await generateVideoWithPika(script, audioUrl) : null;
 
-    // ✅ יצירת וידאו
-    let videoUrl = null;
-    if (process.env.PIKA_API_KEY) {
-      videoUrl = await generateVideoWithPika(script, audioUrl);
-    } else {
-      console.warn("⚠️ PIKA_API_KEY missing - skipped video generation");
-    }
-
-    // ✅ מיזוג אם יש שני קבצים
     let finalVideoPath = null;
-    if (videoUrl && audioUrl) {
-      finalVideoPath = await mergeAudioVideo(videoUrl, audioUrl);
-    }
+    if (videoUrl && audioUrl) finalVideoPath = await mergeAudioVideo(videoUrl, audioUrl);
 
-    // ✅ שמירה ב-Supabase
     const videoId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
 
-    const { error } = await supabase
-      .from("videos")
-      .insert([
-        {
-          id: videoId,
-          category: category || "general",
-          prompt,
-          script,
-          audio_url: audioUrl,
-          video_url: finalVideoPath || videoUrl || null,
-          hash: promptHash,
-          action: "generate",
-          status: finalVideoPath
-            ? "merged_video"
-            : videoUrl
-            ? "generated_video"
-            : "generated_audio",
-          created_at: createdAt,
-        },
-      ]);
+    const { error } = await supabase.from("videos").insert([{
+      id: videoId,
+      category: category || "general",
+      prompt,
+      script,
+      audio_url: audioUrl,
+      video_url: finalVideoPath || videoUrl || null,
+      status: finalVideoPath ? "merged_video" : videoUrl ? "generated_video" : "generated_audio",
+      created_at: createdAt,
+    }]);
 
-    if (error) {
-      console.error("❌ Error saving to Supabase:", error.message);
-    } else {
-      console.log("✅ Saved successfully to Supabase.");
-    }
+    if (error) console.error("❌ Error saving:", error.message);
 
     res.status(200).json({
       success: true,
       video_id: videoId,
-      status: finalVideoPath
-        ? "merged_video"
-        : videoUrl
-        ? "generated_video"
-        : "generated_audio",
-      outputs: {
-        audio_url: audioUrl,
-        video_url: finalVideoPath || videoUrl || null,
-      },
+      status: finalVideoPath ? "merged_video" : videoUrl ? "generated_video" : "generated_audio",
+      outputs: { audio_url: audioUrl, video_url: finalVideoPath || videoUrl || null },
       created_at: createdAt,
     });
   } catch (err) {
     console.error("❌ Generate error:", err.message);
-    res.status(500).json({
-      error: "Internal server error",
-      details: err.message,
-    });
+    res.status(500).json({ error: "Internal server error", details: err.message });
   }
 });
 
-// ✅ נתיב ברירת מחדל
-app.use((req, res) =>
-  res.status(404).json({ error: "Route not found", path: req.originalUrl })
-);
+// ✅ ברירת מחדל
+app.use((req, res) => res.status(404).json({ error: "Route not found", path: req.originalUrl }));
 
 // ✅ הפעלה
 const PORT = process.env.PORT || 8080;
-console.log("✅ Express server initialization complete");
-app.listen(PORT, () => {
-  console.log(`✅ Servoya Cloud Worker fully operational on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`✅ Servoya Cloud Worker running on port ${PORT}`));
