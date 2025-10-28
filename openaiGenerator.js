@@ -1,26 +1,28 @@
 import OpenAI from "openai";
 import { isDuplicatePrompt } from "./src/duplicationGuard.js";
-import { supabase } from "./src/supabaseClient.js";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 /**
- * יוצר סקריפט חדש בעזרת OpenAI, רק אם לא נוצר פרומפט זהה בעבר.
+ * יוצר סקריפט חדש בעזרת OpenAI, כולל fallback אם אין פרומפט או אם ה-API נכשל.
  * @param {string} prompt - הטקסט המשמש ליצירת הסקריפט
  * @returns {Promise<string>} טקסט הסקריפט הסופי
  */
 export async function generateScript(prompt) {
   try {
-    console.log("🧠 Checking for duplicate prompt...");
+    // בדיקה בסיסית
+    if (!prompt || typeof prompt !== "string" || prompt.trim() === "") {
+      console.warn("⚠️ Empty or invalid prompt, using fallback text.");
+      return "Stay focused. Your goals won’t achieve themselves.";
+    }
+
+    // מניעת כפילויות
     const isDuplicate = await isDuplicatePrompt(prompt);
     if (isDuplicate) {
       console.warn("⚠️ Duplicate prompt detected — skipping generation");
-      return JSON.stringify({
-        success: false,
-        message: "Duplicate prompt detected - skipping generation",
-      });
+      return "Duplicate prompt detected - skipped.";
     }
 
     console.log("🚀 Generating new script...");
@@ -29,8 +31,7 @@ export async function generateScript(prompt) {
       messages: [
         {
           role: "system",
-          content:
-            "You are a professional content scriptwriter for short motivational videos.",
+          content: "You are a professional content scriptwriter for short motivational videos.",
         },
         {
           role: "user",
@@ -41,30 +42,16 @@ export async function generateScript(prompt) {
       max_tokens: 300,
     });
 
-    const script = response.choices[0].message.content.trim();
+    const script = response.choices?.[0]?.message?.content?.trim() || "";
+    if (!script) {
+      console.warn("⚠️ Empty response from OpenAI, using fallback.");
+      return "No matter how slow you go, you’re still lapping everyone who’s sitting still.";
+    }
+
     console.log("✅ Script generated successfully.");
-
-    // --- שמירה ב-Supabase עם hash פשוט ---
-    const hash = Buffer.from(prompt).toString("base64");
-    const { error } = await supabase
-      .from("videos")
-      .insert([
-        { prompt, hash, status: "generated", created_at: new Date().toISOString() },
-      ]);
-
-    if (error)
-      console.warn("⚠️ Failed to save hash in Supabase:", error.message);
-    else console.log("✅ Prompt hash saved to Supabase");
-
-    return JSON.stringify({
-      success: true,
-      script,
-    });
+    return script;
   } catch (error) {
-    console.error("❌ OpenAI Generator Error:", error);
-    return JSON.stringify({
-      success: false,
-      message: "Failed to generate script",
-    });
+    console.error("❌ OpenAI Generator Error:", error.message);
+    return "Failure is temporary, but quitting lasts forever.";
   }
 }
