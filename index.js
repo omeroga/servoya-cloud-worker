@@ -17,67 +17,60 @@ import { getRandomPrompt } from "./src/randomPromptEngine.js";
 import { isDuplicatePrompt } from "./src/duplicationGuard.js";
 import { getWeightedPrompt } from "./src/feedbackLoop.js";
 
-// ✅ התחלה
 console.log("🟢 Servoya Cloud Worker starting...");
 
 const app = express();
 
 // ───────────────────────────────────────────────────────────
-// 🔒 ENDPOINTS לבריאות - בראש, לפני כל מידלוור, בלי תלות בכלום
+// ✅ HEALTH ENDPOINTS - ראשונים לחלוטין, לפני מידלוורים
 // ───────────────────────────────────────────────────────────
-app.get("/healthz", (req, res) => {
-  res.status(200).send("ok");
+app.get(["/", "/health", "/healthz"], (req, res) => {
+  res.status(200).json({ status: "ok", path: req.path, ts: new Date().toISOString() });
 });
-app.head("/healthz", (req, res) => {
-  res.status(200).end();
-});
-// גם /health לטובת בדיקות חיצוניות שונות
-app.get("/health", (req, res) => {
-  res.status(200).send("ok");
-});
-// וגם root כ-fallback בריאות (למנוע 404 בפרובים חיצוניים)
-app.get("/", (req, res) => {
-  res.status(200).json({ status: "ok", route: "/", ts: new Date().toISOString() });
-});
+app.head("/healthz", (req, res) => res.status(200).end());
 
 // ───────────────────────────────────────────────────────────
-// ✅ מידלוורים (אחרי בריאות)
+// ✅ MIDDLWARES
 // ───────────────────────────────────────────────────────────
 app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-// ✅ Rate Limit - דלג על בריאות
+// ✅ Rate limit (דלג על בריאות)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => req.path === "/healthz" || req.path === "/health" || req.path === "/",
+  skip: (req) => ["/", "/health", "/healthz"].includes(req.path),
 });
 app.use(limiter);
 
-// ✅ תיקיית TEMP
+// ───────────────────────────────────────────────────────────
+// ✅ TEMP FOLDER
+// ───────────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const TEMP_DIR = path.join(__dirname, "temp");
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
-// ✅ Config check (לבדיקות מהירות)
+// ───────────────────────────────────────────────────────────
+// ✅ CONFIG CHECK
+// ───────────────────────────────────────────────────────────
 app.get("/config", (req, res) => {
-  const present = (k) => (process.env[k] ? "Loaded" : "Missing");
-  res.status(200).json({
-    NODE_ENV: present("NODE_ENV"),
-    SUPABASE_URL: present("SUPABASE_URL"),
-    SUPABASE_KEY: present("SUPABASE_KEY"),
-    OPENAI_API_KEY: present("OPENAI_API_KEY"),
-    ELEVENLABS_API_KEY: present("ELEVENLABS_API_KEY"),
-    PIKA_API_KEY: present("PIKA_API_KEY"),
+  const check = (key) => (process.env[key] ? "Loaded" : "Missing");
+  res.json({
+    NODE_ENV: check("NODE_ENV"),
+    SUPABASE_URL: check("SUPABASE_URL"),
+    SUPABASE_KEY: check("SUPABASE_KEY"),
+    OPENAI_API_KEY: check("OPENAI_API_KEY"),
+    ELEVENLABS_API_KEY: check("ELEVENLABS_API_KEY"),
+    PIKA_API_KEY: check("PIKA_API_KEY"),
     timestamp: new Date().toISOString(),
   });
 });
 
-// ✅ פונקציה למיזוג וידאו ואודיו
+// ───────────────────────────────────────────────────────────
+// ✅ MERGE AUDIO + VIDEO
+// ───────────────────────────────────────────────────────────
 async function mergeAudioVideo(videoUrl, audioUrl) {
   try {
     const videoPath = path.join(TEMP_DIR, "video.mp4");
@@ -90,7 +83,6 @@ async function mergeAudioVideo(videoUrl, audioUrl) {
     fs.writeFileSync(videoPath, Buffer.from(await videoData.arrayBuffer()));
     fs.writeFileSync(audioPath, Buffer.from(await audioData.arrayBuffer()));
 
-    // שמירת וידאו ללא Re-encode + אודיו AAC תקני ליוטיוב
     const cmd = `ffmpeg -y -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac -movflags +faststart "${outputPath}"`;
     execSync(cmd, { stdio: "inherit" });
 
@@ -101,48 +93,47 @@ async function mergeAudioVideo(videoUrl, audioUrl) {
   }
 }
 
-// ✅ יצירת תוכן
+// ───────────────────────────────────────────────────────────
+// ✅ GENERATE
+// ───────────────────────────────────────────────────────────
 app.post("/generate", async (req, res) => {
   try {
     const { category } = req.body;
-    let prompt = await getWeightedPrompt(category || "general");
-    if (!prompt) prompt = await getRandomPrompt(category || "general");
+    let prompt = (await getWeightedPrompt(category)) || (await getRandomPrompt(category));
+    if (!prompt) return res.status(400).json({ error: "No prompt found" });
 
-    const alreadyExists = await isDuplicatePrompt(prompt);
-    if (alreadyExists) {
+    if (await isDuplicatePrompt(prompt)) {
       return res.status(409).json({ success: false, message: "Duplicate prompt detected" });
     }
 
     const script = await generateScript(prompt);
     const audioUrl = await textToSpeech(script, "final_output.mp3");
     const videoUrl = process.env.PIKA_API_KEY ? await generateVideoWithPika(script, audioUrl) : null;
-
-    let finalVideoPath = null;
-    if (videoUrl && audioUrl) {
-      finalVideoPath = await mergeAudioVideo(videoUrl, audioUrl);
-    }
+    const finalVideoPath = videoUrl && audioUrl ? await mergeAudioVideo(videoUrl, audioUrl) : null;
 
     const videoId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
 
-    const { error } = await supabase.from("videos").insert([{
-      id: videoId,
-      category: category || "general",
-      prompt,
-      script,
-      audio_url: audioUrl,
-      video_url: finalVideoPath || videoUrl || null,
-      status: finalVideoPath ? "merged_video" : videoUrl ? "generated_video" : "generated_audio",
-      created_at: createdAt,
-    }]);
+    const { error } = await supabase.from("videos").insert([
+      {
+        id: videoId,
+        category: category || "general",
+        prompt,
+        script,
+        audio_url: audioUrl,
+        video_url: finalVideoPath || videoUrl,
+        status: finalVideoPath ? "merged_video" : videoUrl ? "generated_video" : "generated_audio",
+        created_at: createdAt,
+      },
+    ]);
 
-    if (error) console.error("❌ Error saving:", error.message);
+    if (error) console.error("❌ Supabase insert error:", error.message);
 
-    res.status(200).json({
+    res.json({
       success: true,
       video_id: videoId,
       status: finalVideoPath ? "merged_video" : videoUrl ? "generated_video" : "generated_audio",
-      outputs: { audio_url: audioUrl, video_url: finalVideoPath || videoUrl || null },
+      outputs: { audio_url: audioUrl, video_url: finalVideoPath || videoUrl },
       created_at: createdAt,
     });
   } catch (err) {
@@ -151,11 +142,13 @@ app.post("/generate", async (req, res) => {
   }
 });
 
-// ✅ ברירת מחדל
+// ───────────────────────────────────────────────────────────
+// ✅ FALLBACK 404
+// ───────────────────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ error: "Route not found", path: req.originalUrl }));
 
-// ✅ הפעלה
+// ───────────────────────────────────────────────────────────
+// ✅ SERVER START
+// ───────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`✅ Servoya Cloud Worker running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`✅ Servoya Cloud Worker running on port ${PORT}`));
