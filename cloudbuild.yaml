@@ -1,43 +1,54 @@
 steps:
-  # Step 1: Build Docker image (no cache)
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - 'build'
-      - '--no-cache'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/servoya-cloud-worker:$COMMIT_SHA'
-      - '.'
+  # 0) Build
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "$_IMAGE", "."]
 
-  # Step 2: Push Docker image
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/servoya-cloud-worker:$COMMIT_SHA']
+  # 1) Push
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "$_IMAGE"]
 
-  # Step 3: Deploy
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'gcloud'
+  # 2) Deploy to Cloud Run
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
     args:
-      - 'run'
-      - 'deploy'
-      - 'servoya-cloud-worker'
-      - '--image'
-      - 'gcr.io/$PROJECT_ID/servoya-cloud-worker:$COMMIT_SHA'
-      - '--region'
-      - 'us-central1'
-      - '--platform'
-      - 'managed'
-      - '--allow-unauthenticated'
-      - '--memory'
-      - '1Gi'
-      - '--cpu'
-      - '1'
-      - '--timeout'
-      - '600s'
-      - '--set-env-vars'
-      - 'NODE_ENV=production'
+      - -ceu
+      - |
+        gcloud run deploy ${_SERVICE} \
+          --image ${_IMAGE} \
+          --region ${_REGION} \
+          --platform managed \
+          --allow-unauthenticated \
+          --port 8080
+
+  # 3) Fetch service URL and wait for readiness
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: "wait-for-ready-and-healthcheck"
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        SVC_URL="$(gcloud run services describe ${_SERVICE} --region ${_REGION} --format='value(status.url)')"
+        echo "Service URL: ${SVC_URL}"
+
+        # retry health check up to ~90s
+        for i in {1..18}; do
+          code="$(curl -s -o /dev/null -w '%{http_code}' "${SVC_URL}/healthz")" || true
+          echo "Attempt $i -> HTTP ${code}"
+          if [ "${code}" = "200" ]; then
+            echo "Health OK"
+            exit 0
+          fi
+          sleep 5
+        done
+
+        echo "Health check failed. Last code: ${code}"
+        echo "Tip: If you see Google 404, the request didn't reach the container – check URL and unauthenticated access."
+        exit 1
+
+substitutions:
+  _SERVICE: "servoya-cloud-worker"
+  _REGION: "us-central1"
+  _IMAGE: "gcr.io/$PROJECT_ID/servoya-cloud-worker:$_COMMIT_SHA"
 
 images:
-  - 'gcr.io/$PROJECT_ID/servoya-cloud-worker:$COMMIT_SHA'
-
-options:
-  logging: CLOUD_LOGGING_ONLY
-  machineType: 'E2_HIGHCPU_8'
+  - "gcr.io/$PROJECT_ID/servoya-cloud-worker:$_COMMIT_SHA"
