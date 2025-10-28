@@ -6,12 +6,13 @@ import fs from "fs";
 import { execSync } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
+import fetch from "node-fetch"; // ✅ נדרש ל־fetch בסביבת Node.js
 
 // ✅ מודולים פנימיים
 import { generateScript } from "./openaiGenerator.js";
 import { textToSpeech } from "./ttsGenerator.js";
 import { generateVideoWithPika } from "./pikaGenerator.js";
-import { supabase } from "./src/supabaseClient.js";
+import { supabase } from "./supabaseClient.js";
 import { getRandomPrompt } from "./src/randomPromptEngine.js";
 import { isDuplicatePrompt } from "./src/duplicationGuard.js";
 import { getWeightedPrompt } from "./src/feedbackLoop.js";
