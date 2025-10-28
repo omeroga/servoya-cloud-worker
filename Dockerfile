@@ -10,14 +10,18 @@ WORKDIR /usr/src/app
 # ---- Copy dependency files ----
 COPY package*.json ./
 
-# ---- Install dependencies inside the container ----
+# ---- Install dependencies ----
 RUN npm install --omit=dev
 
-# ---- Copy the rest of the project ----
+# ---- Copy entire project, including src ----
 COPY . .
 
-# ---- Expose correct Cloud Run port ----
+# ---- Expose correct port ----
 EXPOSE 8080
+
+# ---- Health check ----
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost:8080/healthz || exit 1
 
 # ---- Start app ----
 CMD ["node", "index.js"]
