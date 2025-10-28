@@ -13,10 +13,10 @@ COPY package*.json ./
 # ---- Install dependencies ----
 RUN npm install --omit=dev
 
-# ---- Copy entire project, including src ----
+# ---- Copy the rest of the project ----
 COPY . .
 
-# ---- Expose correct port ----
+# ---- Expose port ----
 EXPOSE 8080
 
 # ---- Health check ----
