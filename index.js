@@ -20,14 +20,42 @@ import { getWeightedPrompt } from "./src/feedbackLoop.js";
 // ✅ התחלה
 console.log("🟢 Servoya Cloud Worker starting...");
 
-// ✅ אפליקציה בסיסית
 const app = express();
+
+// ───────────────────────────────────────────────────────────
+// 🔒 ENDPOINTS לבריאות - בראש, לפני כל מידלוור, בלי תלות בכלום
+// ───────────────────────────────────────────────────────────
+app.get("/healthz", (req, res) => {
+  res.status(200).send("ok");
+});
+app.head("/healthz", (req, res) => {
+  res.status(200).end();
+});
+// גם /health לטובת בדיקות חיצוניות שונות
+app.get("/health", (req, res) => {
+  res.status(200).send("ok");
+});
+// וגם root כ-fallback בריאות (למנוע 404 בפרובים חיצוניים)
+app.get("/", (req, res) => {
+  res.status(200).json({ status: "ok", route: "/", ts: new Date().toISOString() });
+});
+
+// ───────────────────────────────────────────────────────────
+// ✅ מידלוורים (אחרי בריאות)
+// ───────────────────────────────────────────────────────────
 app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-// ✅ Rate Limit
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+// ✅ Rate Limit - דלג על בריאות
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === "/healthz" || req.path === "/health" || req.path === "/",
+});
+app.use(limiter);
 
 // ✅ תיקיית TEMP
 const __filename = fileURLToPath(import.meta.url);
@@ -35,13 +63,7 @@ const __dirname = path.dirname(__filename);
 const TEMP_DIR = path.join(__dirname, "temp");
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
-// ✅ Health check
-app.get("/healthz", (req, res) => {
-  console.log("✅ Health check pinged");
-  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
-});
-
-// ✅ Config check
+// ✅ Config check (לבדיקות מהירות)
 app.get("/config", (req, res) => {
   const present = (k) => (process.env[k] ? "Loaded" : "Missing");
   res.status(200).json({
@@ -58,7 +80,6 @@ app.get("/config", (req, res) => {
 // ✅ פונקציה למיזוג וידאו ואודיו
 async function mergeAudioVideo(videoUrl, audioUrl) {
   try {
-    console.log("🎬 Merging video & audio...");
     const videoPath = path.join(TEMP_DIR, "video.mp4");
     const audioPath = path.join(TEMP_DIR, "audio.mp3");
     const outputPath = path.join(TEMP_DIR, "final.mp4");
@@ -69,10 +90,10 @@ async function mergeAudioVideo(videoUrl, audioUrl) {
     fs.writeFileSync(videoPath, Buffer.from(await videoData.arrayBuffer()));
     fs.writeFileSync(audioPath, Buffer.from(await audioData.arrayBuffer()));
 
-    const cmd = `ffmpeg -y -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac "${outputPath}"`;
+    // שמירת וידאו ללא Re-encode + אודיו AAC תקני ליוטיוב
+    const cmd = `ffmpeg -y -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac -movflags +faststart "${outputPath}"`;
     execSync(cmd, { stdio: "inherit" });
 
-    console.log("✅ Merge complete");
     return outputPath;
   } catch (error) {
     console.error("❌ Merge failed:", error.message);
@@ -97,7 +118,9 @@ app.post("/generate", async (req, res) => {
     const videoUrl = process.env.PIKA_API_KEY ? await generateVideoWithPika(script, audioUrl) : null;
 
     let finalVideoPath = null;
-    if (videoUrl && audioUrl) finalVideoPath = await mergeAudioVideo(videoUrl, audioUrl);
+    if (videoUrl && audioUrl) {
+      finalVideoPath = await mergeAudioVideo(videoUrl, audioUrl);
+    }
 
     const videoId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
@@ -133,4 +156,6 @@ app.use((req, res) => res.status(404).json({ error: "Route not found", path: req
 
 // ✅ הפעלה
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`✅ Servoya Cloud Worker running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`✅ Servoya Cloud Worker running on port ${PORT}`);
+});
