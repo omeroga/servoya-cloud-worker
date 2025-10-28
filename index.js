@@ -4,16 +4,19 @@ import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 import fs from "fs";
 import { execSync } from "child_process";
+import path from "path";
+import { fileURLToPath } from "url";
 
-// ✅ טעינת מודולים פנימיים
+// ✅ מודולים פנימיים
 import { generateScript } from "./openaiGenerator.js";
 import { textToSpeech } from "./ttsGenerator.js";
-import { generateVideoWithPika } from "./src/pikaGenerator.js";
+import { generateVideoWithPika } from "./pikaGenerator.js";
 import { supabase } from "./src/supabaseClient.js";
 import { getRandomPrompt } from "./src/randomPromptEngine.js";
 import { isDuplicatePrompt } from "./src/duplicationGuard.js";
 import { getWeightedPrompt } from "./src/feedbackLoop.js";
 
+// ✅ הגדרות בסיסיות
 const app = express();
 app.set("trust proxy", 1);
 app.use(cors());
@@ -25,16 +28,31 @@ app.use(rateLimit({
   max: 100
 }));
 
-// ✅ פונקציה למיזוג אודיו ווידאו (FFmpeg)
-async function mergeAudioVideo(videoPath, audioPath, outputPath) {
-  try {
-    if (!fs.existsSync(videoPath) || !fs.existsSync(audioPath)) {
-      throw new Error("Missing input files for merge.");
-    }
+// ✅ נתיב תיקייה זמנית
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const TEMP_DIR = path.join(__dirname, "temp");
+if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
-    const cmd = `ffmpeg -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac -strict experimental "${outputPath}" -y`;
+// ✅ פונקציה למיזוג אודיו ווידאו
+async function mergeAudioVideo(videoUrl, audioUrl) {
+  try {
+    console.log("🎬 Downloading video & audio for merge...");
+
+    const videoPath = path.join(TEMP_DIR, "video.mp4");
+    const audioPath = path.join(TEMP_DIR, "audio.mp3");
+    const outputPath = path.join(TEMP_DIR, "final.mp4");
+
+    const videoData = await fetch(videoUrl);
+    const audioData = await fetch(audioUrl);
+
+    fs.writeFileSync(videoPath, Buffer.from(await videoData.arrayBuffer()));
+    fs.writeFileSync(audioPath, Buffer.from(await audioData.arrayBuffer()));
+
+    const cmd = `ffmpeg -y -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac "${outputPath}"`;
     execSync(cmd, { stdio: "inherit" });
-    console.log("✅ Video and audio merged successfully:", outputPath);
+
+    console.log("✅ Merge complete:", outputPath);
     return outputPath;
   } catch (error) {
     console.error("❌ Merge failed:", error.message);
@@ -104,10 +122,10 @@ app.post("/generate", async (req, res) => {
       console.warn("⚠️ PIKA_API_KEY missing - skipped video generation");
     }
 
-    // מיזוג אודיו ווידאו (אם קיימים שניהם)
+    // ✅ מיזוג אם יש שני קבצים
     let finalVideoPath = null;
     if (videoUrl && audioUrl) {
-      finalVideoPath = await mergeAudioVideo("temp/video.mp4", "temp/audio.mp3", "temp/final.mp4");
+      finalVideoPath = await mergeAudioVideo(videoUrl, audioUrl);
     }
 
     // ✅ שמירה ב-Supabase
@@ -134,9 +152,6 @@ app.post("/generate", async (req, res) => {
       success: true,
       video_id: videoId,
       status: finalVideoPath ? "merged_video" : videoUrl ? "generated_video" : "generated_audio",
-      category: category || "general",
-      prompt,
-      script,
       outputs: {
         audio_url: audioUrl,
         video_url: finalVideoPath || videoUrl || null,
@@ -160,5 +175,5 @@ app.use((req, res) =>
 // ✅ הפעלה
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`✅ Servoya Cloud Worker running on port ${PORT}`);
+  console.log(`✅ Servoya Cloud Worker fully operational on port ${PORT}`);
 });
