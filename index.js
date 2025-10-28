@@ -3,7 +3,7 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 
-// ✅ טעינת המודולים לפני הפעלת השרת
+// ✅ טעינת כל המודולים
 import { generateScript } from "./openaiGenerator.js";
 import { textToSpeech } from "./ttsGenerator.js";
 import { generateVideoWithPika } from "./src/pikaGenerator.js";
@@ -18,19 +18,17 @@ app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
 // ✅ Rate limit
-app.use(
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-  })
-);
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100
+}));
 
 // ✅ Health check
 app.get("/healthz", (req, res) =>
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() })
 );
 
-// ✅ Config
+// ✅ Config check
 app.get("/config", (req, res) => {
   const present = (k) => (process.env[k] ? "Loaded" : "Missing");
   res.status(200).json({
@@ -44,14 +42,14 @@ app.get("/config", (req, res) => {
   });
 });
 
-// ✅ בדיקת POST בסיסית
+// ✅ POST base test
 app.post("/", (req, res) => {
   const { category } = req.body;
   if (!category) return res.status(400).json({ error: "Missing category" });
   res.status(200).json({ message: `POST received for category: ${category}` });
 });
 
-// ✅ ראוט יצירת תוכן
+// ✅ Generate route
 app.post("/generate", async (req, res) => {
   try {
     const { category } = req.body;
@@ -77,11 +75,9 @@ app.post("/generate", async (req, res) => {
 
     // יצירת תסריט
     const script = await generateScript(prompt);
-
-    // יצירת קול
     const audioUrl = await textToSpeech(script, "final_output.mp3");
 
-    // יצירת וידאו (אם קיים API key)
+    // יצירת וידאו רק אם יש מפתח
     let videoUrl = null;
     if (process.env.PIKA_API_KEY) {
       videoUrl = await generateVideoWithPika(script, audioUrl);
@@ -89,27 +85,22 @@ app.post("/generate", async (req, res) => {
       console.warn("⚠️ PIKA_API_KEY missing - skipped video generation");
     }
 
-    // שמירה ב-Supabase
+    // ✅ שמירה ב-Supabase
     const videoId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
 
-    const { error } = await supabase.from("videos").insert([
-      {
-        video_id: videoId,
-        category: category || "general",
-        prompt,
-        script,
-        audio_url: audioUrl,
-        video_url: videoUrl || null,
-        hash: promptHash,
-        action: "generate",
-        platform: "none",
-        ctr: 0,
-        status: videoUrl ? "generated_video" : "generated_audio",
-        duration_ms: null,
-        created_at: createdAt,
-      },
-    ]);
+    const { error } = await supabase.from("videos").insert([{
+      id: videoId,
+      category: category || "general",
+      prompt,
+      script,
+      audio_url: audioUrl,
+      video_url: videoUrl || null,
+      hash: promptHash,
+      action: "generate",
+      status: videoUrl ? "generated_video" : "generated_audio",
+      created_at: createdAt
+    }]);
 
     if (error) console.error("❌ Error saving to Supabase:", error.message);
     else console.log("✅ Saved successfully to Supabase.");
