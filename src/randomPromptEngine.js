@@ -1,28 +1,28 @@
 import { supabase } from "./supabaseClient.js";
 
 /**
- * בוחר פרומפט רנדומלי מטבלת prompts לפי קטגוריה, בלי תלות באותיות גדולות/קטנות.
- * אם לא מוצא קטגוריה מתאימה, בוחר פרומפט רנדומלי מכלל הטבלה.
+ * בוחר פרומפט רנדומלי מטבלת prompts לפי קטגוריה.
+ * מתואם לגרסה שבה כל הקטגוריות ב־Supabase הן lowercase.
  */
-export async function getRandomPrompt(category = "Motivation") {
+export async function getRandomPrompt(category = "general") {
   try {
     console.log(`🎯 Fetching random prompt for category: ${category}`);
 
-    // שליפת מזהה הקטגוריה, מתעלם מהבדלי אותיות
+    // שליפת מזהה הקטגוריה (מותאם לאותיות קטנות)
     const { data: catData, error: catError } = await supabase
       .from("categories")
-      .select("id, name")
-      .ilike("name", category)
+      .select("id")
+      .eq("name", category)
       .maybeSingle();
 
     if (catError) throw catError;
 
     const categoryId = catData?.id;
     if (!categoryId) {
-      console.warn(`⚠️ Category not found for '${category}', selecting any active prompt.`);
+      console.warn(`⚠️ Category '${category}' not found, selecting any active prompt.`);
     }
 
-    // שליפת פרומפט לפי קטגוריה (אם נמצאה)
+    // שליפת פרומפט לפי קטגוריה אם קיימת, אחרת רנדומלי כללי
     let query = supabase
       .from("prompts")
       .select("template")
@@ -33,8 +33,8 @@ export async function getRandomPrompt(category = "Motivation") {
     if (categoryId) query = query.eq("category_id", categoryId);
 
     const { data, error } = await query;
-
     if (error) throw error;
+
     if (!data || data.length === 0) {
       console.warn("⚠️ No prompts found for this category.");
       return null;
