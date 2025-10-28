@@ -3,7 +3,7 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 
-// ✅ טוענים את כל המודולים לפני הפעלת השרת
+// ✅ טעינת המודולים לפני הפעלת השרת
 import { generateScript } from "./openaiGenerator.js";
 import { textToSpeech } from "./ttsGenerator.js";
 import { generateVideoWithPika } from "./src/pikaGenerator.js";
@@ -44,14 +44,14 @@ app.get("/config", (req, res) => {
   });
 });
 
-// ✅ POST root test
+// ✅ בדיקת POST בסיסית
 app.post("/", (req, res) => {
   const { category } = req.body;
   if (!category) return res.status(400).json({ error: "Missing category" });
   res.status(200).json({ message: `POST received for category: ${category}` });
 });
 
-// ✅ Generate route
+// ✅ ראוט יצירת תוכן
 app.post("/generate", async (req, res) => {
   try {
     const { category } = req.body;
@@ -75,9 +75,13 @@ app.post("/generate", async (req, res) => {
       });
     }
 
+    // יצירת תסריט
     const script = await generateScript(prompt);
+
+    // יצירת קול
     const audioUrl = await textToSpeech(script, "final_output.mp3");
 
+    // יצירת וידאו (אם קיים API key)
     let videoUrl = null;
     if (process.env.PIKA_API_KEY) {
       videoUrl = await generateVideoWithPika(script, audioUrl);
@@ -85,18 +89,24 @@ app.post("/generate", async (req, res) => {
       console.warn("⚠️ PIKA_API_KEY missing - skipped video generation");
     }
 
+    // שמירה ב-Supabase
     const videoId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
 
     const { error } = await supabase.from("videos").insert([
       {
-        id: videoId,
-        action: "generate",
+        video_id: videoId,
+        category: category || "general",
         prompt,
         script,
         audio_url: audioUrl,
         video_url: videoUrl || null,
         hash: promptHash,
+        action: "generate",
+        platform: "none",
+        ctr: 0,
+        status: videoUrl ? "generated_video" : "generated_audio",
+        duration_ms: null,
         created_at: createdAt,
       },
     ]);
@@ -115,9 +125,7 @@ app.post("/generate", async (req, res) => {
         audio_url: audioUrl,
         video_url: videoUrl || null,
       },
-      metrics: {
-        processing_ms: null,
-      },
+      metrics: { processing_ms: null },
       created_at: createdAt,
     });
   } catch (err) {
@@ -129,12 +137,12 @@ app.post("/generate", async (req, res) => {
   }
 });
 
-// ✅ Fallback route
+// ✅ נתיב ברירת מחדל
 app.use((req, res) =>
   res.status(404).json({ error: "Route not found", path: req.originalUrl })
 );
 
-// ✅ הפעלה לאחר שכל המודולים נטענו
+// ✅ הפעלה
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`✅ Servoya Cloud Worker fully loaded and running on port ${PORT}`);
