@@ -85,15 +85,19 @@ app.post("/generate", async (req, res) => {
       console.warn("⚠️ PIKA_API_KEY missing - skipped video generation");
     }
 
+    const videoId = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+
     const { error } = await supabase.from("videos").insert([
       {
+        id: videoId,
         action: "generate",
         prompt,
         script,
         audio_url: audioUrl,
         video_url: videoUrl || null,
         hash: promptHash,
-        created_at: new Date().toISOString(),
+        created_at: createdAt,
       },
     ]);
 
@@ -102,12 +106,19 @@ app.post("/generate", async (req, res) => {
 
     res.status(200).json({
       success: true,
+      video_id: videoId,
+      status: videoUrl ? "generated_video" : "generated_audio",
       category: category || "general",
       prompt,
       script,
-      audioUrl,
-      video: videoUrl || "Skipped (missing PIKA_API_KEY)",
-      timestamp: new Date().toISOString(),
+      outputs: {
+        audio_url: audioUrl,
+        video_url: videoUrl || null,
+      },
+      metrics: {
+        processing_ms: null,
+      },
+      created_at: createdAt,
     });
   } catch (err) {
     console.error("❌ Generate error:", err.message);
