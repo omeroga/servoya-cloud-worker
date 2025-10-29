@@ -1,9 +1,10 @@
-// 🕐 Servoya Auto Downloader (v3 with Auto-Fallback)
+// 🕐 Servoya Auto Downloader (v3.1 with Google Drive Upload + Auto-Fallback)
 import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { supabase } from "./src/supabaseClient.js";
+import { uploadToDrive } from "./googleDriveUploader.js"; // ✅ חדש
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -79,7 +80,11 @@ async function checkForNewVideos() {
   const fallbackUrl = "https://filesamples.com/samples/video/mp4/sample_960x400_ocean.mp4";
 
   await downloadFile(latest.video_url, outputPath, fallbackUrl);
-  console.log("✅ Download process finished.");
+
+  // ✅ העלאה אוטומטית ל־Google Drive
+  await uploadToDrive(outputPath);
+
+  console.log("✅ Download + Upload process finished.");
 }
 
 // ריצה מיידית ואז כל 30 דקות
