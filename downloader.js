@@ -1,20 +1,51 @@
-// 🧩 Servoya Downloader - Simple file fetcher
-import fetch from "node-fetch";
+// 🧠 Servoya Downloader - pulls latest video from Supabase and saves locally
+import { supabase } from "./src/supabaseClient.js";
 import fs from "fs";
-import path from "path";
+import fetch from "node-fetch";
 
-const DOWNLOAD_DIR = "./downloads";
-if (!fs.existsSync(DOWNLOAD_DIR)) fs.mkdirSync(DOWNLOAD_DIR);
+// נתיב שמירה מקומית
+const SAVE_DIR = "./downloads";
+if (!fs.existsSync(SAVE_DIR)) fs.mkdirSync(SAVE_DIR);
 
-async function downloadFile(url, filename) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Download failed: ${res.statusText}`);
+async function downloadLatestVideo() {
+  console.log("📦 Checking Supabase for latest video...");
+
+  const { data, error } = await supabase
+    .from("videos")
+    .select("id, video_url, category, created_at")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error("❌ Supabase error:", error.message);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    console.log("⚠️ No videos found in database.");
+    return;
+  }
+
+  const video = data[0];
+  if (!video.video_url) {
+    console.log("⚠️ No video_url found for latest record.");
+    return;
+  }
+
+  console.log(`🎬 Downloading: ${video.video_url}`);
+
+  const res = await fetch(video.video_url);
+  if (!res.ok) {
+    console.error("❌ Download failed:", res.statusText);
+    return;
+  }
+
+  const filePath = `${SAVE_DIR}/${video.id}.mp4`;
   const buffer = await res.arrayBuffer();
-  const filePath = path.join(DOWNLOAD_DIR, filename);
   fs.writeFileSync(filePath, Buffer.from(buffer));
-  console.log(`✅ Saved: ${filePath}`);
+
+  console.log(`✅ Saved as: ${filePath}`);
 }
 
-const TEST_URL = "https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4";
-
-downloadFile(TEST_URL, "test_video.mp4").catch(console.error);
+// הפעלה מיידית
+downloadLatestVideo();
