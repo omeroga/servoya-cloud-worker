@@ -22,7 +22,7 @@ console.log("🟢 Servoya Cloud Worker starting...");
 const app = express();
 
 // ───────────────────────────────────────────────────────────
-// ✅ HEALTH ENDPOINTS - מגיבים לכל סוג בקשה (HEAD/GET/HTTP2 וכו')
+// ✅ HEALTH ENDPOINTS
 // ───────────────────────────────────────────────────────────
 app.all(["/", "/health", "/healthz"], (req, res) => {
   res.status(200).json({
@@ -91,7 +91,7 @@ async function mergeAudioVideo(videoUrl, audioUrl) {
   }
 }
 
-// ✅ GENERATE
+// ✅ GENERATE (רגיל)
 app.post("/generate", async (req, res) => {
   try {
     const { category } = req.body;
@@ -135,6 +135,56 @@ app.post("/generate", async (req, res) => {
   } catch (err) {
     console.error("❌ Generate error:", err.message);
     res.status(500).json({ error: "Internal server error", details: err.message });
+  }
+});
+
+// ✅ GENERATE AUTO (מחולל תוכן אוטומטי)
+app.post("/generate/auto", async (req, res) => {
+  try {
+    console.log("🎯 Starting automatic content generation...");
+
+    const promptData = await getRandomPrompt();
+    if (!promptData) {
+      console.warn("⚠️ No prompts found in database.");
+      return res.status(400).json({ success: false, error: "No prompts found" });
+    }
+
+    const script = await generateScript(promptData.template);
+    const audioUrl = await textToSpeech(script, "final_output.mp3");
+
+    const videoId = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+
+    const { error } = await supabase.from("videos").insert([
+      {
+        id: videoId,
+        category_id: promptData.category_id,
+        prompt_id: promptData.id,
+        script_text: script,
+        audio_url: audioUrl,
+        status: "generated_audio",
+        created_at: createdAt,
+      },
+    ]);
+
+    if (error) {
+      console.error("❌ Supabase insert error:", error.message);
+      throw error;
+    }
+
+    console.log("✅ Auto generation complete.");
+    res.status(200).json({
+      success: true,
+      video_id: videoId,
+      category: promptData.category_id,
+      prompt_used: promptData.template,
+      audio_url: audioUrl,
+      video_url: null,
+      created_at: createdAt,
+    });
+  } catch (err) {
+    console.error("❌ Auto generation error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
