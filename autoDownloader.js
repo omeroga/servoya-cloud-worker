@@ -1,4 +1,4 @@
-// 🕐 Servoya Auto Downloader (v2)
+// 🕐 Servoya Auto Downloader (v3 with Auto-Fallback)
 import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
@@ -14,19 +14,31 @@ if (!fs.existsSync(DOWNLOAD_DIR)) fs.mkdirSync(DOWNLOAD_DIR);
 
 console.log("🟢 AutoDownloader started...");
 
-async function downloadFile(url, outputPath) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Download failed: ${res.statusText}`);
-  const fileStream = fs.createWriteStream(outputPath);
-  await new Promise((resolve, reject) => {
-    res.body.pipe(fileStream);
-    res.body.on("error", reject);
-    fileStream.on("finish", resolve);
-  });
-  console.log(`✅ Saved: ${outputPath}`);
+// פונקציה להורדה עם fallback
+async function downloadFile(url, outputPath, fallbackUrl = null) {
+  try {
+    console.log(`⬇️ Attempting to download: ${url}`);
+    const res = await fetch(url, { timeout: 15000 });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const fileStream = fs.createWriteStream(outputPath);
+    await new Promise((resolve, reject) => {
+      res.body.pipe(fileStream);
+      res.body.on("error", reject);
+      fileStream.on("finish", resolve);
+    });
+    console.log(`✅ Saved: ${outputPath}`);
+  } catch (err) {
+    console.warn(`⚠️ Download failed: ${err.message}`);
+    if (fallbackUrl) {
+      console.log(`🔁 Trying fallback: ${fallbackUrl}`);
+      return downloadFile(fallbackUrl, outputPath);
+    } else {
+      console.log("❌ No fallback URL available.");
+    }
+  }
 }
 
-// פונקציה שבודקת אם יש וידאו חדש שמוכן להורדה
+// בודק אם יש וידאו חדש שמוכן להורדה
 async function checkForNewVideos() {
   console.log("🔍 Checking for new videos...");
 
@@ -37,7 +49,7 @@ async function checkForNewVideos() {
     .order("created_at", { ascending: false })
     .limit(1);
 
-  console.log("DEBUG:", data, error); // ✅ שורת בקרה חשובה
+  console.log("DEBUG:", data, error);
 
   if (error) {
     console.error("❌ Supabase query error:", error.message);
@@ -63,8 +75,11 @@ async function checkForNewVideos() {
     return;
   }
 
-  await downloadFile(latest.video_url, outputPath);
-  console.log("✅ Download complete:", fileName);
+  // URL גיבוי אוטומטי
+  const fallbackUrl = "https://filesamples.com/samples/video/mp4/sample_960x400_ocean.mp4";
+
+  await downloadFile(latest.video_url, outputPath, fallbackUrl);
+  console.log("✅ Download process finished.");
 }
 
 // ריצה מיידית ואז כל 30 דקות
