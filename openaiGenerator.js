@@ -5,19 +5,14 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-/**
- * Timeout helper - מבטל פעולה אחרי X מילישניות
- */
-function withTimeout(promise, ms) {
+// ✅ עוטף כל קריאה ל־OpenAI במגבלת זמן פנימית של 25 שניות
+function withTimeout(promise, ms = 25000) {
   return Promise.race([
     promise,
     new Promise((_, reject) => setTimeout(() => reject(new Error("⏱️ OpenAI timeout exceeded")), ms)),
   ]);
 }
 
-/**
- * יוצר סקריפט חדש בעזרת OpenAI, כולל fallback אם אין פרומפט או אם ה-API נכשל.
- */
 export async function generateScript(prompt) {
   try {
     if (!prompt || typeof prompt !== "string" || prompt.trim() === "") {
@@ -31,7 +26,7 @@ export async function generateScript(prompt) {
       return "Duplicate prompt detected - skipped.";
     }
 
-    console.log("🚀 Generating new script (with 20s timeout)...");
+    console.log("🚀 Generating new script (timeout 25s)...");
     const response = await withTimeout(
       client.chat.completions.create({
         model: "gpt-4o-mini",
@@ -45,7 +40,7 @@ export async function generateScript(prompt) {
         temperature: 0.8,
         max_tokens: 300,
       }),
-      20000 // 20 seconds
+      25000
     );
 
     const script = response.choices?.[0]?.message?.content?.trim() || "";
