@@ -10,7 +10,10 @@ const CATEGORIES = [
 ];
 
 // ⚙️ CONFIGURATION
-const GENERATE_URL = process.env.GENERATE_URL || "https://servoya-cloud-worker-xxxxx-uc.a.run.app/generate";
+const GENERATE_URL =
+  process.env.GENERATE_URL ||
+  "https://servoya-cloud-worker-107577272837.us-central1.run.app/generate";
+
 const INTERVAL_MIN = 30; // דקות
 const INTERVAL_MS = INTERVAL_MIN * 60 * 1000;
 
@@ -27,7 +30,14 @@ async function generate(category) {
       body: JSON.stringify({ category }),
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(`Invalid JSON response: ${text.slice(0, 120)}...`);
+    }
+
     if (!response.ok) throw new Error(JSON.stringify(data));
     console.log(`✅ Video generated [${category}] → ${data.video_id || "no-id"}`);
   } catch (err) {
@@ -37,11 +47,9 @@ async function generate(category) {
 
 async function startScheduler() {
   let index = 0;
-
   while (true) {
     const category = CATEGORIES[index % CATEGORIES.length];
     await generate(category);
-
     index++;
     console.log(`⏸ Waiting ${INTERVAL_MIN} minutes...`);
     await new Promise((r) => setTimeout(r, INTERVAL_MS));
