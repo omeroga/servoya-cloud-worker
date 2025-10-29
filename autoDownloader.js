@@ -1,4 +1,4 @@
-// 🕐 Servoya Auto Downloader
+// 🕐 Servoya Auto Downloader (v2)
 import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
@@ -26,15 +26,18 @@ async function downloadFile(url, outputPath) {
   console.log(`✅ Saved: ${outputPath}`);
 }
 
-// פונקציה שבודקת אם יש וידאו חדש
+// פונקציה שבודקת אם יש וידאו חדש שמוכן להורדה
 async function checkForNewVideos() {
   console.log("🔍 Checking for new videos...");
 
   const { data, error } = await supabase
     .from("videos")
-    .select("id, video_url, created_at")
+    .select("id, video_url, created_at, status")
+    .eq("status", "ready_for_download")
     .order("created_at", { ascending: false })
     .limit(1);
+
+  console.log("DEBUG:", data, error); // ✅ שורת בקרה חשובה
 
   if (error) {
     console.error("❌ Supabase query error:", error.message);
@@ -42,11 +45,16 @@ async function checkForNewVideos() {
   }
 
   if (!data || data.length === 0) {
-    console.log("⚠️ No videos found yet.");
+    console.log("⚠️ No videos ready for download.");
     return;
   }
 
   const latest = data[0];
+  if (!latest.video_url) {
+    console.log("⚠️ Latest video has no URL.");
+    return;
+  }
+
   const fileName = `${latest.id}.mp4`;
   const outputPath = path.join(DOWNLOAD_DIR, fileName);
 
@@ -55,14 +63,10 @@ async function checkForNewVideos() {
     return;
   }
 
-  if (!latest.video_url) {
-    console.log("⚠️ Latest video has no URL.");
-    return;
-  }
-
   await downloadFile(latest.video_url, outputPath);
+  console.log("✅ Download complete:", fileName);
 }
 
-// ריצה כל 30 דקות
-setInterval(checkForNewVideos, 30 * 60 * 1000);
+// ריצה מיידית ואז כל 30 דקות
 checkForNewVideos();
+setInterval(checkForNewVideos, 30 * 60 * 1000);
