@@ -1,0 +1,16 @@
+{
+  "displayName": "Servoya CloudRun 5xx Error Alerts",
+  "combiner": "OR",
+  "enabled": true,
+  "conditions": [
+    {
+      "displayName": "Cloud Run HTTP 5xx Errors",
+      "conditionMonitoringQueryLanguage": {
+        "query": "fetch run.googleapis.com/request_count\n| filter resource.service_name == 'servoya-auto-downloader'\n| filter metric.response_code =~ '^5'\n| group_by 10m, [total_errors: sum(value.request_count)]\n| condition total_errors > 0"
+      }
+    }
+  ],
+  "notificationChannels": [
+    "projects/servoya-cloud-worker/notificationChannels/2555526568730540614"
+  ]
+}

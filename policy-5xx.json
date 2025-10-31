@@ -1,0 +1,16 @@
+{
+  "displayName": "Servoya Cloud Run 5xx Failures",
+  "combiner": "OR",
+  "enabled": true,
+  "conditions": [
+    {
+      "displayName": "Cloud Run 5xx Errors",
+      "conditionMonitoringQueryLanguage": {
+        "query": "fetch cloud_run_revision | metric 'run.googleapis.com/request_count' | filter metric.response_code_class == '5xx' | align rate(10m) | condition val() > 0"
+      }
+    }
+  ],
+  "notificationChannels": [
+    "projects/servoya-cloud-worker/notificationChannels/2555526568730540614"
+  ]
+}
